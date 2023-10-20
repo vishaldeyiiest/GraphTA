@@ -1,0 +1,266 @@
+{
+    "os": "Linux-3.10.0-1160.95.1.el7.x86_64-x86_64-with-glibc2.17",
+    "python": "3.9.16",
+    "heartbeatAt": "2023-10-20T20:35:14.086294",
+    "startedAt": "2023-10-20T20:35:13.474481",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--input_model_file",
+        "../baseline_weights/classification/model_gin/supervised_contextpred.pth",
+        "--split",
+        "scaffold",
+        "--runseed",
+        "1",
+        "--dataset",
+        "sider",
+        "--aux_2D_mode",
+        "AM",
+        "CP",
+        "EP",
+        "IG",
+        "MP",
+        "--adapt",
+        "gns",
+        "--batch_size",
+        "256",
+        "--lr",
+        "0.001",
+        "--model_group",
+        "supervised_contextpred",
+        "--epochs",
+        "100",
+        "--adapt",
+        "pcgrad"
+    ],
+    "state": "running",
+    "program": "/fs/ess/PCON0041/Vishal/GraphPT/GNN-adaptation/src/meta_adapt.py",
+    "codePath": "meta_adapt.py",
+    "host": "p0256.ten.osc.edu",
+    "username": "deyosu78",
+    "executable": "/users/PAS1440/deyosu78/.conda/envs/GraphPT/bin/python",
+    "cpu_count": 40,
+    "cpu_count_logical": 40,
+    "cpu_freq": {
+        "current": 1059.9786250000002,
+        "min": 1000.0,
+        "max": 3700.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1009.13,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1696.289,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1568.847,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1089.257,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.902,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1074.023,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1008.691,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1023.339,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1028.613,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1193.408,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1386.914,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1152.978,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.902,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.902,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1093.505,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.902,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1035.936,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.902,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1048.535,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.195,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.902,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1008.544,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1091.894,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 999.755,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1035.351,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1009.13,
+            "min": 1000.0,
+            "max": 3700.0
+        },
+        {
+            "current": 1000.048,
+            "min": 1000.0,
+            "max": 3700.0
+        }
+    ],
+    "disk": {
+        "total": 190.0,
+        "used": 155.865234375
+    },
+    "gpu": "Tesla V100-PCIE-16GB",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "Tesla V100-PCIE-16GB",
+            "memory_total": 17179869184
+        }
+    ],
+    "memory": {
+        "total": 376.5265655517578
+    }
+}

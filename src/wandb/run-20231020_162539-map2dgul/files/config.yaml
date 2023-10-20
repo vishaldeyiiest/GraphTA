@@ -1,0 +1,251 @@
+wandb_version: 1
+
+seed:
+  desc: null
+  value: 42
+runseed:
+  desc: null
+  value: 1
+device:
+  desc: null
+  value: 0
+input_data_dir:
+  desc: null
+  value: ''
+dataset:
+  desc: null
+  value: sider
+num_workers:
+  desc: null
+  value: 0
+task:
+  desc: null
+  value: alpha
+portion:
+  desc: null
+  value: 1.0
+split:
+  desc: null
+  value: scaffold
+batch_size:
+  desc: null
+  value: 256
+epochs:
+  desc: null
+  value: 100
+lr:
+  desc: null
+  value: 0.001
+lr_scale:
+  desc: null
+  value: 1
+decay:
+  desc: null
+  value: 0
+lr_scheduler:
+  desc: null
+  value: CosineAnnealingLR
+lr_decay_factor:
+  desc: null
+  value: 0.5
+lr_decay_step_size:
+  desc: null
+  value: 100
+lr_decay_patience:
+  desc: null
+  value: 50
+gnn_type:
+  desc: null
+  value: gin
+num_layer:
+  desc: null
+  value: 5
+emb_dim:
+  desc: null
+  value: 300
+dropout_ratio:
+  desc: null
+  value: 0.5
+graph_pooling:
+  desc: null
+  value: mean
+JK:
+  desc: null
+  value: last
+gnn_lr_scale:
+  desc: null
+  value: 1
+model_3d:
+  desc: null
+  value: schnet
+mask_rate:
+  desc: null
+  value: 0.15
+mask_edge:
+  desc: null
+  value: 0
+csize:
+  desc: null
+  value: 3
+contextpred_neg_samples:
+  desc: null
+  value: 1
+num_filters:
+  desc: null
+  value: 128
+num_interactions:
+  desc: null
+  value: 6
+num_gaussians:
+  desc: null
+  value: 51
+cutoff:
+  desc: null
+  value: 10
+readout:
+  desc: null
+  value: mean
+schnet_lr_scale:
+  desc: null
+  value: 0.1
+CL_neg_samples:
+  desc: null
+  value: 1
+CL_similarity_metric:
+  desc: null
+  value: EBM_dot_prod
+T:
+  desc: null
+  value: 0.1
+normalize:
+  desc: null
+  value: false
+SSL_masking_ratio:
+  desc: null
+  value: 0.15
+AE_model:
+  desc: null
+  value: VAE
+AE_loss:
+  desc: null
+  value: l2
+detach_target:
+  desc: null
+  value: true
+beta:
+  desc: null
+  value: 1
+alpha_1:
+  desc: null
+  value: 1
+alpha_2:
+  desc: null
+  value: 1
+aux_2D_mode:
+  desc: null
+  value:
+  - AM
+  - CP
+  - EP
+  - IG
+  - MP
+aux_3D_mode:
+  desc: null
+  value: false
+alpha_3:
+  desc: null
+  value: 0.1
+gamma_joao:
+  desc: null
+  value: 0.1
+gamma_joaov2:
+  desc: null
+  value: 0.1
+adapt:
+  desc: null
+  value: gns
+adapt_lr:
+  desc: null
+  value: 0.001
+max_adapt_iter:
+  desc: null
+  value: 3
+adapt_every:
+  desc: null
+  value: 10
+aux_scale:
+  desc: null
+  value: 1
+aux_net:
+  desc: null
+  value: linear
+aux_skip_connection:
+  desc: null
+  value: false
+eval_train:
+  desc: null
+  value: true
+input_model_file:
+  desc: null
+  value: ../baseline_weights/classification/model_gin/supervised_contextpred.pth
+model_group:
+  desc: null
+  value: supervised_contextpred
+output_model_dir:
+  desc: null
+  value: ''
+resume_training:
+  desc: null
+  value: ''
+verbose:
+  desc: null
+  value: false
+DEBUG:
+  desc: null
+  value: false
+_wandb:
+  desc: null
+  value:
+    python_version: 3.9.16
+    cli_version: 0.15.8
+    framework: huggingface
+    huggingface_version: 4.27.2
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1697833539.171641
+    t:
+      1:
+      - 1
+      - 5
+      - 9
+      - 11
+      - 41
+      - 49
+      - 51
+      - 53
+      - 55
+      - 77
+      - 103
+      - 105
+      2:
+      - 1
+      - 5
+      - 9
+      - 11
+      - 41
+      - 49
+      - 51
+      - 53
+      - 55
+      - 77
+      - 103
+      - 105
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.9.16
+      5: 0.15.8
+      6: 4.27.2
+      8:
+      - 5
