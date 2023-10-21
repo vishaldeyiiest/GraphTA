@@ -14,21 +14,8 @@ from torch_geometric.data import DataLoader
 from util import get_num_task, seed_everything, EarlyStopping
 
 from datasets import MoleculeDataset
-import wandb
-wandb.disabled = True
 criterion = nn.BCEWithLogitsLoss(reduction='none')
 
-# start a new wandb run to track this script
-wandb.init(
-        # set the wandb project where this run will be logged
-        project=f"{args.dataset}",
-        group=args.model_group,
-        job_type='ft',
-        name='finetune',
-        dir=args.output_model_dir,
-        # track hyperparameters and run metadata
-        config=args.__dict__
-)
 
 def train(model, device, loader, optimizer):
     model.train()
@@ -119,7 +106,7 @@ if __name__ == '__main__':
 
     # Bunch of classification tasks
     num_tasks = get_num_task(args.dataset)
-    dataset_folder = '../datasets/molecule_datasets/'
+    dataset_folder = args.input_data_dir
     dataset = MoleculeDataset(dataset_folder + args.dataset, dataset=args.dataset)
     print(dataset)
 
@@ -154,7 +141,7 @@ if __name__ == '__main__':
     if args.portion < 1:
         train_dataset = train_dataset[idx]
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                              shuffle=False, num_workers=args.num_workers)
+                              shuffle=True, num_workers=args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
                             shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -206,7 +193,6 @@ if __name__ == '__main__':
         print('Loss train: {:.6f}\tval: {:.6f}\ttest: {:.6f}'.format(train_loss, val_loss, test_loss))
         print('ROC train: {:.6f}\tval: {:.6f}\ttest: {:.6f}'.format(train_roc, val_roc, test_roc))
         print()
-        wandb.log(dict_to_log)
 
         if val_roc > best_val_roc:
             best_val_roc = val_roc
@@ -237,9 +223,3 @@ if __name__ == '__main__':
             'model': model.state_dict()
         }
         torch.save(saved_model_dict, output_model_path)
-
-    wandb.run.summary["Best idx"] = best_val_idx
-    wandb.run.summary["Best Train ROC"] = train_roc_list[best_val_idx]
-    wandb.run.summary["Best Val ROC"] = val_roc_list[best_val_idx]
-    wandb.run.summary["Best Test ROC"] = test_roc_list[best_val_idx]
-    wandb.finish()

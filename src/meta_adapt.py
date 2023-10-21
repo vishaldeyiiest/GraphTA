@@ -31,19 +31,19 @@ from auxilearn.hypernet import (Identity, MonoHyperNet, MonoLinearHyperNet, Mono
 
 weights_transform = nn.Softmax(dim=0)
 step = 0
-import wandb
-LOG_TABLE_WANDB = False
-wandb.disabled = False
-os.environ['WANDB_SILENT']="false"
+#import wandb
+#LOG_TABLE_WANDB = False
+#wandb.disabled = False
+#os.environ['WANDB_SILENT']="false"
 
 log_metrics = ["ROC", "Acc", "Loss", "Weights", "Gradient Similarity", 
                "Gradient Norm", "Aux Scale Balance", "Scaled Weights"]
-if LOG_TABLE_WANDB:
-    table = {}
-    fields = {}
-    for m in log_metrics:
-        table[m] = wandb.Table(columns=["Step", "Mode", "Value"])
-        fields[m] = {"x":"Step", "y":m, "groupKeys":"Mode"}
+#if LOG_TABLE_WANDB:
+#    table = {}
+#    fields = {}
+#    for m in log_metrics:
+#        table[m] = wandb.Table(columns=["Step", "Mode", "Value"])
+#        fields[m] = {"x":"Step", "y":m, "groupKeys":"Mode"}
 
 
 def save_model(outdir, save_best, epoch=None):
@@ -226,13 +226,13 @@ def train_baselines(args, device,
     dict_to_log['Target Weights'] = 1.0
     dict_to_log['Target Norm'] = grad_norm[-1]
 
-    if LOG_TABLE_WANDB:
-        for i, mode in enumerate(args.aux_2D_mode):
-            table["Loss"].add_data(wandb.run.step, mode, aux_2D_loss_accum_dict[mode])
-            table["Acc"].add_data(wandb.run.step, mode, aux_2D_acc_accum_dict[mode])
-            table["Weights"].add_data(wandb.run.step, mode, weights[i])
-            table["Gradient Similarity"].add_data(wandb.run.step, mode, grad_sim[i])
-            table["Gradient Norm"].add_data(wandb.run.step, mode, grad_norm[i])
+    #if LOG_TABLE_WANDB:
+    #    for i, mode in enumerate(args.aux_2D_mode):
+    #        table["Loss"].add_data(wandb.run.step, mode, aux_2D_loss_accum_dict[mode])
+    #        table["Acc"].add_data(wandb.run.step, mode, aux_2D_acc_accum_dict[mode])
+    #        table["Weights"].add_data(wandb.run.step, mode, weights[i])
+    #        table["Gradient Similarity"].add_data(wandb.run.step, mode, grad_sim[i])
+    #        table["Gradient Norm"].add_data(wandb.run.step, mode, grad_norm[i])
     return dict_to_log
 
 
@@ -421,15 +421,15 @@ def train_meta(args, device,
     dict_to_log['Target Gradient Norm'] = grad_norm[-1]
     dict_to_log['Target Norm Scaled Weights'] = scale_balanced_weights[-1]
 
-    if LOG_TABLE_WANDB:
-        for i, mode in enumerate(args.aux_2D_mode):
-            table["Loss"].add_data(wandb.run.step, mode, aux_2D_loss_accum_dict[mode])
-            table["Acc"].add_data(wandb.run.step, mode, aux_2D_acc_accum_dict[mode])
-            table["Weights"].add_data(wandb.run.step, mode, weights[i])
-            table["Gradient Similarity"].add_data(wandb.run.step, mode, grad_sim[i])
-            table["Gradient Norm"].add_data(wandb.run.step, mode, grad_norm[i])
-            #table["Aux Scale Balance"].add_data(wandb.run.step, mode, final_aux_scale_balance[i])
-            table["Norm Scaled Weights"].add_data(wandb.run.step, mode, scale_balanced_weights[i])
+    #if LOG_TABLE_WANDB:
+    #    for i, mode in enumerate(args.aux_2D_mode):
+    #        table["Loss"].add_data(wandb.run.step, mode, aux_2D_loss_accum_dict[mode])
+    #        table["Acc"].add_data(wandb.run.step, mode, aux_2D_acc_accum_dict[mode])
+    #        table["Weights"].add_data(wandb.run.step, mode, weights[i])
+    #        table["Gradient Similarity"].add_data(wandb.run.step, mode, grad_sim[i])
+    #        table["Gradient Norm"].add_data(wandb.run.step, mode, grad_norm[i])
+    #        #table["Aux Scale Balance"].add_data(wandb.run.step, mode, final_aux_scale_balance[i])
+    #        table["Norm Scaled Weights"].add_data(wandb.run.step, mode, scale_balanced_weights[i])
     return dict_to_log
 
 
@@ -459,16 +459,16 @@ if __name__ == '__main__':
                   indent=4, sort_keys=True)
 
     # start a new wandb run to track this script
-    wandb.init(
-            # set the wandb project where this run will be logged
-            project=f"{args.dataset}",
-            group=args.model_group,
-            job_type=args.adapt,
-            name=f"{'+'.join(sorted(args.aux_2D_mode))}",
-            dir=args.output_model_dir,
-            # track hyperparameters and run metadata
-            config=args.__dict__
-        )
+    #wandb.init(
+    #        # set the wandb project where this run will be logged
+    #        project=f"{args.dataset}",
+    #        group=args.model_group,
+    #        job_type=args.adapt,
+    #        name=f"{'+'.join(sorted(args.aux_2D_mode))}",
+    #        dir=args.output_model_dir,
+    #        # track hyperparameters and run metadata
+    #        config=args.__dict__
+    #    )
 
 
     logger = logging.getLogger()
@@ -480,7 +480,7 @@ if __name__ == '__main__':
     
     transform, criterion = setup_transform_criteria(args)
 
-    data_root = f'../../datasets/molecule_datasets/{args.dataset}'
+    data_root = f'{args.input_data_dir}/{args.dataset}'
     
     compose_transform = T.Compose(transform.values()) # type: ignore
 
@@ -529,9 +529,9 @@ if __name__ == '__main__':
 
     if args.adapt in ['blo', 'blo+gns']:
         l = int(len(train_dataset)*0.8)
-        train_loader = DataLoaderHybrid(train_dataset, batch_size=args.batch_size, # type: ignore
+        train_loader = DataLoaderHybrid(train_dataset[:l], batch_size=args.batch_size, # type: ignore
                                 shuffle=True, num_workers=args.num_workers)
-        aux_loader = DataLoaderHybrid(valid_dataset, batch_size=args.batch_size, # type: ignore
+        aux_loader = DataLoaderHybrid(train_dataset[l:], batch_size=args.batch_size, # type: ignore
                                 shuffle=True, num_workers=args.num_workers)
         
     val_loader = DataLoaderHybrid(valid_dataset, batch_size=args.batch_size, # type: ignore
@@ -653,12 +653,12 @@ if __name__ == '__main__':
         test_roc, test_acc, test_target, test_pred, test_loss = eval(model, device, test_loader, eval_metric)
         dict_to_log.update({"Val Loss": val_loss, "Test Loss": test_loss})
         dict_to_log.update({"Train ROC": train_roc, "Val ROC": val_roc, "Test ROC": test_roc})
-        wandb.log(dict_to_log)
+        #wandb.log(dict_to_log)
 
-        if LOG_TABLE_WANDB:
-            table["ROC"].add_data(wandb.run.step, "Train", train_roc)
-            table["ROC"].add_data(wandb.run.step, "Val", val_roc)
-            table["ROC"].add_data(wandb.run.step, "Test", test_roc)
+        #if LOG_TABLE_WANDB:
+        #    table["ROC"].add_data(wandb.run.step, "Train", train_roc)
+        #    table["ROC"].add_data(wandb.run.step, "Val", val_roc)
+        #    table["ROC"].add_data(wandb.run.step, "Test", test_roc)
 
         train_roc_list.append(train_roc)
         train_acc_list.append(train_acc)
@@ -691,13 +691,13 @@ if __name__ == '__main__':
     if outdir is not None:
         save_model(outdir, save_best=False)
     
-    if LOG_TABLE_WANDB:
-        for m in log_metrics:
-            wandb.log({m: wandb.plot_table("wandb/line/v0", table[m], fields[m])})
+    #if LOG_TABLE_WANDB:
+    #    for m in log_metrics:
+    #        wandb.log({m: wandb.plot_table("wandb/line/v0", table[m], fields[m])})
 
 
-    wandb.run.summary["Best idx"] = best_val_idx
-    wandb.run.summary["Best Train ROC"] = train_roc_list[best_val_idx]
-    wandb.run.summary["Best Val ROC"] = val_roc_list[best_val_idx]
-    wandb.run.summary["Best Test ROC"] = test_roc_list[best_val_idx]
-    wandb.finish()
+    #wandb.run.summary["Best idx"] = best_val_idx
+    #wandb.run.summary["Best Train ROC"] = train_roc_list[best_val_idx]
+    #wandb.run.summary["Best Val ROC"] = val_roc_list[best_val_idx]
+    #wandb.run.summary["Best Test ROC"] = test_roc_list[best_val_idx]
+    #wandb.finish()
