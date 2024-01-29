@@ -16,34 +16,23 @@ from dataloader import DataLoaderHybrid
 from models import GNN, GNN_graphpred, AuxiliaryNet
 from splitters import random_scaffold_split, random_split, scaffold_split
 from util import (do_GraphCL, do_GraphCLv2, map_param_to_block,
-                  update_augmentation_probability_JOAO,
-                  update_augmentation_probability_JOAOv2, get_num_task, seed_everything,
-                  EarlyStopping)
+                  get_num_task, seed_everything, EarlyStopping)
 
 from datasets import (MoleculeGraphCLHybridDataset,
                       MoleculeHybridDataset)
-from util import (setup_transform_criteria, setup_2D_models)
-from pretrain_hybrid import compute_loss, get_aux_2D_loss
+from util import (setup_transform_criteria, setup_2D_models, ScaleGradientNet)
+from pretrain_hybrid import compute_loss
 from molecule_finetune import eval
 from auxilearn.optim import MetaOptimizer
 from auxilearn.hypernet import (Identity, MonoHyperNet, MonoLinearHyperNet, MonoNonlinearHyperNet)
-#from auxilearn.hypermodel import HyperModel
+
 
 weights_transform = nn.Softmax(dim=0)
 step = 0
-#import wandb
-#LOG_TABLE_WANDB = False
-#wandb.disabled = False
-#os.environ['WANDB_SILENT']="false"
+
 
 log_metrics = ["ROC", "Acc", "Loss", "Weights", "Gradient Similarity", 
                "Gradient Norm", "Aux Scale Balance", "Scaled Weights"]
-#if LOG_TABLE_WANDB:
-#    table = {}
-#    fields = {}
-#    for m in log_metrics:
-#        table[m] = wandb.Table(columns=["Step", "Mode", "Value"])
-#        fields[m] = {"x":"Step", "y":m, "groupKeys":"Mode"}
 
 
 def save_model(outdir, save_best, epoch=None):
@@ -68,13 +57,59 @@ def get_grads(model, target_loss, aux_2D_loss_dict):
     for mode in args.aux_2D_mode:
         aux_2D_grad_list.append(
             torch.autograd.grad(aux_2D_loss_dict[mode], model.molecule_model.parameters(), create_graph=True))
-    return target_grad, aux_2D_grad_list
+    grad_shapes = [i.shape for i in target_grad]
+    return target_grad, aux_2D_grad_list, grad_shapes
+
+def flatten_grads(grads):
+    return torch.cat([i.flatten() for i in grads])
+
+def unflatten_grads(grads, shapes):
+    unflattened_grads = []
+    start = 0
+    for shape in shapes:
+        end = start + np.prod(shape)
+        unflattened_grads.append(grads[start:end].reshape(shape))
+        start = end
+    return unflattened_grads
 
 
-def train_baselines(args, device,
+def project_conflicting_grads(target_grad_flat, aux_2D_grad_flat,
+                              grad_sim, grad_norm, weights=None,
+                              reduction='sum'):
+    """
+    function to project the conflicting gradients and either scale or remove them
+    Return: the final auxiliary gradient after surgery
+    """
+    projected_aux_grads = []
+    ## PCGrad operation
+    for i, aux_grad in enumerate(aux_2D_grad_flat):
+        gsim = grad_sim[i]
+        aux_grad_ = aux_grad.clone()
+        if gsim < 0:
+            aux_grad_ -= gsim * grad_norm[i] * target_grad_flat/grad_norm[-1]
+
+        projected_aux_grads.append(aux_grad_)
+    
+    projected_aux_grads = torch.stack(projected_aux_grads)
+    # equation 4 in the paper to scale the gradients
+    if 'rcgrad' in args.adapt:
+        norm_w = torch.clamp(grad_norm[-1]/grad_norm[:-1], max=1)
+        projected_aux_grads = (norm_w + weights).unsqueeze(-1)/2 * projected_aux_grads
+
+    if reduction == 'sum':
+        projected_aux_grads = torch.sum(projected_aux_grads, dim=0)
+    elif reduction == 'mean':
+        projected_aux_grads = torch.mean(projected_aux_grads, dim=0)
+    return projected_aux_grads
+        
+
+
+def train_GS(args, device,
                   model, aux_2D_support_model_list, criterion,
-                  train_loader, optimizer, logger, valid_loader=None, 
-                  auxiliary_combine_net=None, meta_optimizer=None):
+                  train_loader, optimizer, logger, rotation_weights, **kwargs):
+    """
+    Adaptation modes: MTL, GCS, GNS, PCGrad, RCGrad
+    """
     start_time = time.time()
     for mode, support_model in aux_2D_support_model_list.items():
         if mode != 'EP':
@@ -98,6 +133,9 @@ def train_baselines(args, device,
     #=======================================================================================#
     def aggregate_loss(target_loss, aux_2D_loss_dict):
         aux_loss = torch.stack(list(aux_2D_loss_dict.values()))
+        if args.adapt == 'rcgrad':
+            aux_loss = rotation_net(aux_loss)
+
         aux_2D_loss = torch.sum(aux_loss)
         total_loss = target_loss + aux_2D_loss
         return total_loss, aux_2D_loss
@@ -127,67 +165,60 @@ def train_baselines(args, device,
                 projection_head=aux_2D_support_model_list['JOAOv2'],
                 molecule_readout_func=molecule_readout_func)
 
-        target_grad, aux_2D_grad_list = get_grads(model, target_loss, aux_2D_loss_dict)
+        target_grad, aux_2D_grad_list, grad_shapes = get_grads(model, target_loss, aux_2D_loss_dict)
         total_loss, aux_2D_loss = aggregate_loss(target_loss, aux_2D_loss_dict)
+        
         # Backpropagate and update all model parameters, we will modify the gradients of shared paramters
         optimizer.zero_grad()
         total_loss.backward()
+       
+        # flatten the gradients
+        target_grad_flat = flatten_grads(target_grad)
+        aux_2D_grad_flat = torch.stack([flatten_grads(aux_2D_grad) for aux_2D_grad in aux_2D_grad_list])
+
         # compute cosine similarity of gradients for each parameter and then take the mean 
-        target_grad_flat = torch.cat([i.flatten() for i in target_grad])
-        aux_2D_grad_flat = torch.stack([torch.cat([i.flatten() for i in aux_2D_grad]) for aux_2D_grad in aux_2D_grad_list])
         grad_norm = torch.cat((torch.norm(aux_2D_grad_flat, dim=1), torch.norm(target_grad_flat.unsqueeze(0), dim=1)))
         grad_sim = nn.functional.cosine_similarity(target_grad_flat, aux_2D_grad_flat)
 
-        if args.adapt == 'gcs':
-            weights = torch.clamp(grad_sim, min=0)
-            #weights = torch.clamp(nn.functional.cosine_similarity(target_grad_flat, aux_2D_grad_flat), min=0).detach()
-                
-        elif args.adapt == 'gns':
-            weights = torch.clamp(grad_norm[-1]/grad_norm[:-1], max=1)
-            #weights = torch.clamp(torch.norm(target_grad_flat.unsqueeze(0), dim=1)/torch.norm(aux_2D_grad_flat, dim=1),max=1).detach()
+        if args.adapt == 'pcgrad' or args.adapt == 'rcgrad':
+            ## g = g_t + g_i - (g_t.g_i)/||g_t||^2 * g_t
+            if args.adapt == 'rcgrad':
+                ## scale the aux gradients by learned weight and then projecting is equivalent to rotation and projecting   
+                weights.data = rotation_weights.data # type: ignore
 
-        elif args.adapt == 'pcgrad':
-            weights = torch.clamp(grad_sim*grad_norm[-1]/grad_norm[:-1], min=0, max=1)
-
-        elif args.adapt == 'gcsMO':
-            weights_modulewise = []
-            # compute grad sim for each module separately (instead of flattening out) and average over modules
-            ## for the shared parameters
+            projected_aux_grads = project_conflicting_grads(target_grad_flat, aux_2D_grad_flat,
+                                                            weights=rotation_weights,
+                                                            grad_sim=grad_sim, grad_norm=grad_norm
+                                                            )
+            #print(rotation_net.scale_weights)
+            unflattened_aux_grads = unflatten_grads(projected_aux_grads, grad_shapes)
             for i, param in enumerate(model.molecule_model.parameters()):
-                target_grad_flat = target_grad[i].flatten()
-                aux_2D_grad_flat_list = [aux_2D_grad[i].flatten() for aux_2D_grad in aux_2D_grad_list]
-                cos_sim = torch.clamp(nn.functional.cosine_similarity(target_grad_flat, torch.stack(aux_2D_grad_flat_list)), min=0)
-                weights_modulewise.append(cos_sim)
+                param.grad = unflattened_aux_grads[i].clone() + target_grad[i].clone()
 
-        for i, param in enumerate(model.molecule_model.parameters()):
-            aux_grad = torch.stack([aux_2D_grad[i] for aux_2D_grad in aux_2D_grad_list])
-            if args.adapt == 'gcsMO':
-                weights = weights_modulewise[i]
-            if len(aux_grad.shape) == 2:
-                param.grad = torch.einsum('i,ij->j', weights, aux_grad).clone()
-            elif len(aux_grad.shape) == 3:
-                param.grad = torch.einsum('i,ijk->jk', weights, aux_grad).clone()
-            param.grad += target_grad[i].clone()
-            #param.grad *= args.lr
+        else:
+            ## g = g_t + w*g_i
+            if args.adapt == 'gcs':
+                ## w = \max(0, cos(g_t, g_i))
+                weights = torch.clamp(grad_sim, min=0)
+                    
+            elif args.adapt == 'gns':
+                ## w = \min(1, ||g_t||/||g_i||)
+                weights = torch.clamp(grad_norm[-1]/grad_norm[:-1], max=1)
 
-        if args.adapt == 'gcsMO':
-            # average the similarity over modules
-            weights_modulewise = torch.stack(weights_modulewise)
-            weights = weights_modulewise.mean(dim=0)
+            elif args.adapt == 'gcs+gns':
+                ## w = g_t.g_i * ||g_t||/||g_i||
+                weights = torch.clamp(grad_sim*grad_norm[-1]/grad_norm[:-1], min=0)
 
-        ## for the task-specific parameters
-        #target_grad = torch.autograd.grad(target_loss, model.graph_pred_linear.parameters(), create_graph=True)
-        #for i, param in enumerate(model.graph_pred_linear.parameters()):
-        #    param.grad = target_grad[i]*args.lr
-
-        #for mode in args.aux_2D_mode:
-        #    if mode != 'EP':
-        #        support_grad = torch.autograd.grad(aux_2D_loss_dict[mode], aux_2D_support_model_list[mode].parameters(), create_graph=True)
-        #        for i, param in enumerate(aux_2D_support_model_list[mode].parameters()):
-        #            param.grad = support_grad[i]*args.lr
+            aux_grad = torch.stack([aux_2D_grad*weights[i] for i,aux_2D_grad in enumerate(aux_2D_grad_flat)])
+            # modify the auxiliary gradients for shared parameters
+            aux_grad = torch.sum(aux_grad, dim=0)
+            unflattened_aux_grad = unflatten_grads(aux_grad, grad_shapes)
+            for i, param in enumerate(model.molecule_model.parameters()):
+                param.grad = unflattened_aux_grad[i].clone() + target_grad[i].clone()
         
         optimizer.step()
-
+        if args.adapt == 'rcgrad':
+            rotation_weights.data.clamp_(min=0, max=1) # type: ignore
         
         for mode in args.aux_2D_mode:
             aux_2D_loss_accum_dict[mode] += aux_2D_loss_dict[mode].detach().cpu().item()
@@ -226,20 +257,16 @@ def train_baselines(args, device,
     dict_to_log['Target Weights'] = 1.0
     dict_to_log['Target Norm'] = grad_norm[-1]
 
-    #if LOG_TABLE_WANDB:
-    #    for i, mode in enumerate(args.aux_2D_mode):
-    #        table["Loss"].add_data(wandb.run.step, mode, aux_2D_loss_accum_dict[mode])
-    #        table["Acc"].add_data(wandb.run.step, mode, aux_2D_acc_accum_dict[mode])
-    #        table["Weights"].add_data(wandb.run.step, mode, weights[i])
-    #        table["Gradient Similarity"].add_data(wandb.run.step, mode, grad_sim[i])
-    #        table["Gradient Norm"].add_data(wandb.run.step, mode, grad_norm[i])
     return dict_to_log
 
 
-def train_meta(args, device, 
+def train_BLO(args, device, 
                model, aux_2D_support_model_list, criterion,
                train_loader, optimizer, logger, valid_loader,
-               auxiliary_combine_net, meta_optimizer):
+               auxiliary_combine_net, meta_optimizer, **kwargs):
+    """
+    To train BLO, BLO+RCGrad, BLO+GNS
+    """
     start_time = time.time()
 
     for mode, support_model in aux_2D_support_model_list.items():
@@ -262,8 +289,6 @@ def train_meta(args, device,
     def aggregate_loss(target_loss, aux_2D_loss_dict):
         aux_loss = torch.stack(list(aux_2D_loss_dict.values())) #* args.aux_scale 
         stacked_loss = torch.concat((aux_loss, target_loss.reshape(-1))) * aux_scale_balance
-        #total_loss = torch.sum(stacked_loss)
-        #common_grads = auxiliary_combine_net(stacked_loss, shared_params, whether_single=0)
         total_loss = auxiliary_combine_net(stacked_loss)
         common_grads = torch.autograd.grad(total_loss, shared_params, create_graph=True)
         #print(aux_loss, target_loss, stacked_loss, total_loss)
@@ -349,11 +374,11 @@ def train_meta(args, device,
                 projection_head=aux_2D_support_model_list['JOAOv2'],
                 molecule_readout_func=molecule_readout_func)
 
-        target_grad, aux_2D_grad_list = get_grads(model, target_loss, aux_2D_loss_dict)
+        target_grad, aux_2D_grad_list, grad_shapes = get_grads(model, target_loss, aux_2D_loss_dict)
+        # flatten the gradients
+        target_grad_flat = flatten_grads(target_grad)
+        aux_2D_grad_flat = torch.stack([flatten_grads(aux_2D_grad) for aux_2D_grad in aux_2D_grad_list])
         # compute cosine similarity of gradients for each parameter and then take the mean 
-        target_grad_flat = torch.cat([i.flatten() for i in target_grad])
-        aux_2D_grad_flat = torch.stack([torch.cat([i.flatten() for i in aux_2D_grad]) for aux_2D_grad in aux_2D_grad_list])
-
         grad_norm = torch.cat((torch.norm(aux_2D_grad_flat, dim=1), torch.norm(target_grad_flat.unsqueeze(0), dim=1)))
         grad_sim = nn.functional.cosine_similarity(target_grad_flat, aux_2D_grad_flat)
 
@@ -365,6 +390,18 @@ def train_meta(args, device,
         total_loss, aux_2D_loss, common_grads = aggregate_loss(target_loss, aux_2D_loss_dict)
         optimizer.zero_grad()
         total_loss.backward()
+
+        ## for rcgrad, need to modify the gradient
+        if args.adapt == 'blo+rcgrad':
+            # scale the gradients by learned weight and then projecting is equivalent to rotation and projection
+            w_scale = auxiliary_combine_net.linear.weight[0].type(torch.float32)
+            projected_aux_grads = project_conflicting_grads(target_grad_flat, aux_2D_grad_flat,
+                                                            grad_sim=grad_sim, grad_norm=grad_norm,
+                                                            weights=w_scale[:-1])
+            unflattened_aux_grads = unflatten_grads(projected_aux_grads, grad_shapes)
+            target_grad = unflatten_grads(target_grad_flat, grad_shapes)
+            common_grads = [unflattened_aux_grads[i] + target_grad[i] for i in range(len(target_grad))]
+
         # update the shared parameters separately
         for p,g in zip(shared_params, common_grads):
             p.grad = g
@@ -407,10 +444,8 @@ def train_meta(args, device,
     logger.info('Weights: ' + np.array2string(weights, formatter={'float_kind':lambda x: "%.6f" % x}))
     logger.info('Gradient Similarity: ' + np.array2string(grad_sim, formatter={'float_kind':lambda x: "%.6f" % x}))
     logger.info('Gradient Norm: '+ np.array2string(grad_norm, formatter={'float_kind':lambda x: "%.6f" % x}))
-    #logger.info('Aux Scale Balance: '+ np.array2string(aux_scale_balance, formatter={'float_kind':lambda x: "%.6f" % x}))
-    #logger.info('Scale Balanced Weights: ' + np.array2string((auxiliary_combine_net.linear.weight[0]*aux_scale_balance).detach().cpu().numpy(),
-    #                                          formatter={'float_kind':lambda x: "%.6f" % x}))
-    
+
+    # dict to log to WandB
     dict_to_log = {"Weighted Total Loss": total_loss_accum, "Weighted SSL Loss": aux_2D_loss_accum, "Target Loss": target_loss_accum}
     for i, mode in enumerate(args.aux_2D_mode):
         dict_to_log[f'{mode} Weights'] = weights[i]
@@ -421,15 +456,6 @@ def train_meta(args, device,
     dict_to_log['Target Gradient Norm'] = grad_norm[-1]
     dict_to_log['Target Norm Scaled Weights'] = scale_balanced_weights[-1]
 
-    #if LOG_TABLE_WANDB:
-    #    for i, mode in enumerate(args.aux_2D_mode):
-    #        table["Loss"].add_data(wandb.run.step, mode, aux_2D_loss_accum_dict[mode])
-    #        table["Acc"].add_data(wandb.run.step, mode, aux_2D_acc_accum_dict[mode])
-    #        table["Weights"].add_data(wandb.run.step, mode, weights[i])
-    #        table["Gradient Similarity"].add_data(wandb.run.step, mode, grad_sim[i])
-    #        table["Gradient Norm"].add_data(wandb.run.step, mode, grad_norm[i])
-    #        #table["Aux Scale Balance"].add_data(wandb.run.step, mode, final_aux_scale_balance[i])
-    #        table["Norm Scaled Weights"].add_data(wandb.run.step, mode, scale_balanced_weights[i])
     return dict_to_log
 
 
@@ -439,7 +465,7 @@ if __name__ == '__main__':
         if torch.cuda.is_available() else torch.device('cpu')
     seed_everything(args.runseed)
     
-    output_log = 'train.log' #if not args.test_time_training else 'test.log'
+    output_log = 'train.log' 
 
     # set up output directory
     outdir = None
@@ -457,19 +483,6 @@ if __name__ == '__main__':
         # save hyperparameters
         json.dump(args.__dict__, open(os.path.join(outdir, 'config.json'), 'w'),
                   indent=4, sort_keys=True)
-
-    # start a new wandb run to track this script
-    #wandb.init(
-    #        # set the wandb project where this run will be logged
-    #        project=f"{args.dataset}",
-    #        group=args.model_group,
-    #        job_type=args.adapt,
-    #        name=f"{'+'.join(sorted(args.aux_2D_mode))}",
-    #        dir=args.output_model_dir,
-    #        # track hyperparameters and run metadata
-    #        config=args.__dict__
-    #    )
-
 
     logger = logging.getLogger()
     file_handler = logging.FileHandler(output_log)
@@ -527,7 +540,7 @@ if __name__ == '__main__':
     train_loader = DataLoaderHybrid(train_dataset, batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers)
 
-    if args.adapt in ['blo', 'blo+gns']:
+    if args.adapt in ['blo', 'blo+gns', 'blo+rcgrad']:
         l = int(len(train_dataset)*0.8)
         train_loader = DataLoaderHybrid(train_dataset[:l], batch_size=args.batch_size, # type: ignore
                                 shuffle=True, num_workers=args.num_workers)
@@ -545,6 +558,13 @@ if __name__ == '__main__':
 
     aux_2D_support_model_list = setup_2D_models(args, num_aux_classes=0, device=device)
     aux_2D_support_model_list = nn.ModuleDict(aux_2D_support_model_list)
+    rotation_weights = None
+    if args.adapt == 'rcgrad':
+        #rotation_weights = nn.Parameter(torch.ones(len(args.aux_2D_mode), device=device), requires_grad=True)
+        #nn.init.uniform_(rotation_weights, 0, 1)
+        rotation_net = ScaleGradientNet(len(args.aux_2D_mode), device=device)
+        rotation_weights = rotation_net.scale_weights
+
     # set up target task model
     model = GNN_graphpred(args=args, num_tasks=num_tasks, molecule_model=molecule_model_2D).to(device)
     shared_params = [param for name, param in model.molecule_model.named_parameters()]
@@ -560,10 +580,16 @@ if __name__ == '__main__':
                           'lr': args.lr * args.gnn_lr_scale},
                          {'params': model.graph_pred_linear.parameters(),
                           'lr': args.lr * args.lr_scale}]
-    for mode, aux_2D_support_model in aux_2D_support_model_list.items():
+    # params for aux task heads
+    for mode in args.aux_2D_mode:
         if mode != 'EP':
-            model_param_group.append({'params': aux_2D_support_model.parameters(),
-                                  'lr': args.lr * args.lr_scale})
+            params = aux_2D_support_model_list[mode].parameters()
+            model_param_group.append({'params': params, 'lr': args.lr * args.lr_scale})
+    
+    # extra learnable scaling weights 
+    if args.adapt == 'rcgrad':
+        model_param_group.append({'params': rotation_weights, 'lr': args.adapt_lr * args.lr_scale})
+
     optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
     
     N = len(args.aux_2D_mode)+1 if args.adapt != 'gcsMO' else len(args.aux_2D_mode)
@@ -590,13 +616,9 @@ if __name__ == '__main__':
     #auxiliary_combine_net = HyperModel(len(args.aux_2D_mode), num_modules, param_to_block)
     meta_params = [{'params': auxiliary_combine_net.parameters(), 'lr':args.adapt_lr}]
     
-    
-    if args.adapt == 'alt':
-        auxiliary_combine_net = weights
-        meta_params = [{'params': weights, 'lr':args.adapt_lr}]
     meta_optimizer = optim.SGD(meta_params, lr=args.adapt_lr, momentum=0.9, weight_decay=args.decay)
 
-    if args.adapt in ['blo', 'blo+gns']:
+    if args.adapt in ['blo', 'blo+gns', 'blo+rcgrad']:
         meta_optimizer = MetaOptimizer(
             meta_optimizer=meta_optimizer, hpo_lr=1, truncate_iter=3, max_grad_norm=25)
 
@@ -605,34 +627,23 @@ if __name__ == '__main__':
     train_roc_list, val_roc_list, test_roc_list = [], [], []
     train_acc_list, val_acc_list, test_acc_list = [], [], []
     best_val_roc, best_val_idx = -1, 0
-    early_stopping = EarlyStopping(patience=20, min_delta=1e-4)
+    early_stopping = EarlyStopping(patience=10, min_delta=1e-4)
 
     # for GraphCL, JOAO, JOAOv2
     aug_prob = np.ones(25) / 25
     #np.set_printoptions(precision=3, floatmode='fixed') # type: ignore
 
-    if args.adapt in ['blo', 'blo+gns']:
-        train_function = train_meta
-    #elif args.adapt == 'alt':
-    #    train_function = train_alt
-    elif args.adapt in ['gcs', 'gns', 'gcsMO', 'pcgrad', 'mtl']:
-        train_function = train_baselines
+    if args.adapt in ['blo', 'blo+gns', 'blo+rcgrad']:
+        train_function = train_BLO
+    elif args.adapt in ['gcs', 'gns', 'gcsMO', 'pcgrad', 'mtl', 'rcgrad']:
+        train_function = train_GS
     else:
         raise ValueError('Invalid adaptation option.')
 
     eval_metric = roc_auc_score
-    aux_loader = val_loader if args.adapt not in ['blo', 'blo+gns'] else aux_loader    
+    aux_loader = val_loader if args.adapt not in ['blo', 'blo+gns', 'blo+rcgrad'] else aux_loader    
     
     start_epoch = 1
-    if args.resume_training != '':
-        assert(os.path.exists(args.resume_training))
-        logger.info(f'Resuming training from the checkpoint at {args.resume_training}')
-        checkpoint = torch.load(os.path.join(args.resume_training, 'model_final.pth'), map_location=device)
-        model.load_state_dict(checkpoint['model'])
-        aux_2D_support_model_list.load_state_dict(checkpoint['support_model'])
-        weights = checkpoint['weights']
-        start_epoch = 101
-
     # start training
     for epoch in range(start_epoch, args.epochs + start_epoch):
         logger.info('epoch: {}'.format(epoch))
@@ -642,8 +653,9 @@ if __name__ == '__main__':
             logger.info('augmentation probability\t', aug_prob)
 
         dict_to_log = train_function(args, device, model, aux_2D_support_model_list, criterion,
-                        train_loader, optimizer, logger, aux_loader,
-                        auxiliary_combine_net, meta_optimizer)
+                        train_loader, optimizer, logger, rotation_weights=rotation_weights, # type: ignore
+                        valid_loader=aux_loader, auxiliary_combine_net=auxiliary_combine_net, meta_optimizer=meta_optimizer)
+
 
         if args.eval_train:
             train_roc, train_acc, train_target, train_pred, _ = eval(model, device, train_loader, eval_metric)
@@ -654,11 +666,6 @@ if __name__ == '__main__':
         dict_to_log.update({"Val Loss": val_loss, "Test Loss": test_loss})
         dict_to_log.update({"Train ROC": train_roc, "Val ROC": val_roc, "Test ROC": test_roc})
         #wandb.log(dict_to_log)
-
-        #if LOG_TABLE_WANDB:
-        #    table["ROC"].add_data(wandb.run.step, "Train", train_roc)
-        #    table["ROC"].add_data(wandb.run.step, "Val", val_roc)
-        #    table["ROC"].add_data(wandb.run.step, "Test", test_roc)
 
         train_roc_list.append(train_roc)
         train_acc_list.append(train_acc)
@@ -673,9 +680,6 @@ if __name__ == '__main__':
             best_val_idx = epoch - 1
             if outdir is not None:
                 save_model(outdir, save_best=True)
-                #filename = join(args.output_model_dir, 'evaluation_best.pth')
-                #np.savez(filename, val_target=val_target, val_pred=val_pred,
-                #        test_target=test_target, test_pred=test_pred)
 
         # early stopping
         early_stopping(val_roc)
@@ -691,13 +695,3 @@ if __name__ == '__main__':
     if outdir is not None:
         save_model(outdir, save_best=False)
     
-    #if LOG_TABLE_WANDB:
-    #    for m in log_metrics:
-    #        wandb.log({m: wandb.plot_table("wandb/line/v0", table[m], fields[m])})
-
-
-    #wandb.run.summary["Best idx"] = best_val_idx
-    #wandb.run.summary["Best Train ROC"] = train_roc_list[best_val_idx]
-    #wandb.run.summary["Best Val ROC"] = val_roc_list[best_val_idx]
-    #wandb.run.summary["Best Test ROC"] = test_roc_list[best_val_idx]
-    #wandb.finish()

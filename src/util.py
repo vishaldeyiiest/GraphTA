@@ -682,3 +682,35 @@ class EarlyStopping:
             self.counter += 1
             if self.counter >= self.patience:
                 self.early_stop = True
+
+
+class GradientManipulation(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, scale_weights):
+        # In forward pass, we just pass the input through and save scale_weights
+        ctx.save_for_backward(input, scale_weights)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Retrieve input and scale_weights from the context
+        input, scale_weights = ctx.saved_tensors
+
+        # Scale the gradient by the weight vector
+        grad_input = grad_output * scale_weights
+
+        # The gradient with respect to the weights is the element-wise product of
+        # the incoming gradient and the input
+        grad_weights = grad_output * input
+
+        return grad_input, grad_weights
+    
+class ScaleGradientNet(nn.Module):
+    def __init__(self, input_dim, device):
+        super().__init__()
+        self.scale_weights = nn.Parameter(torch.ones(input_dim, device=device))
+        #self.scale_weights.data.uniform_(-1/np.sqrt(input_dim), 1/np.sqrt(input_dim))
+
+    def forward(self, losses):
+        output = GradientManipulation.apply(losses, self.scale_weights)
+        return output

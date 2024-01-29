@@ -51,7 +51,7 @@ Move the `molecule_datasets` to `../datasets/`.
 
 ## Pretrained Models
 - Create a directory `baseline_weights/classification/`
-- Download the pre-trained GNN models supervised_contextpred ($\mathtt{SUP\text{-}C}$) from [here](https://github.com/snap-stanford/pretrain-gnns), and $\mathtt{GraphMVP\text{-}C}$ from [here](https://github.com/chao1224/GraphMVP/tree/main).
+- Download the pre-trained GNN models `supervised` ($\mathtt{SUP}$) and `supervised_contextpred` ($\mathtt{SUP\text{-}C}$) from [here](https://github.com/snap-stanford/pretrain-gnns).
 
 
 ## Experiments
@@ -63,10 +63,11 @@ python meta_adapt.py --input_model_file <path to pretrained checkpoints> --split
     --adapt $adapt --adapt_every ${adapt_every} --epochs 100 --batch_size $batch_size --output_model_dir <path to save>
 ```
 Change the following arguments to run different experiments:
-- `$adapt`: mtl, gcs, gns and blo for $\mathtt{MTL}$, $\mathtt{GCS}$, $\mathtt{GNS}$ and $\mathtt{BLO}$, respectively.
+- `$adapt`: mtl, gcs, gns, pcgrad, rcgrad, blo, blo+rcgrad for $\mathtt{MTL}$, $\mathtt{GCS}$, $\mathtt{GNS}$, $\mathtt{PCGrad}$, $\mathtt{RCGrad}$, $\mathtt{BLO}$ and $\mathtt{BLO\text{+}RCGrad}$, respectively.
 - `$dataset`: Any one of the following -- sider, clintox, bbbp, bace, tox21, toxcast, hiv, muv.
-- `${adapt_every}`: one outer optimization for every $adapt_every$ inner optimizations in $\mathtt{BLO}$.
-- `${aux_mode}`: list of auxiliary tasks $\subset \{AM,CP,EP,IG,MP\}$.
+- `${adapt_every}`: one outer optimization for every `adapt_every` inner optimizations in $\mathtt{BLO}$, which is `r` in the paper (Algo 1).
+- `${aux_mode}`: list of auxiliary tasks $\subset \{\text{AM,CP,EP,IG,MP}\}$.
+- `${input_data_dir}` to the appropiate directory where the data was extracted.
 
 Follow `scripts/run_meta_adapt.sh` for more details.
 For example, to run $\mathtt{BLO}$ experiment on `bace` dataset, run:

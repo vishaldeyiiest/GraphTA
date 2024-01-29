@@ -128,13 +128,6 @@ def get_aux_2D_loss(args, batch, node_repr, molecule_model_2D,
             molecule_repr=molecule_2D_repr, criterion=criterion['MP'],
             motif_pred_model=aux_2D_support_model_list['MP'])
 
-    if aux_model is not None:
-        aux_target = aux_model(batch)
-        aux_pred = aux_2D_support_model_list['aux'](molecule_2D_repr)
-        aux_2D_loss['aux'] = criterion['aux'](aux_pred, aux_target)
-        aux_2D_acc['aux'] = 0 
-        #float(torch.sum(torch.max(aux_pred.detach(), dim=1)[1] == aux_target).cpu().item())/len(aux_pred)
-
     return aux_2D_loss, aux_2D_acc
 
 

@@ -8,7 +8,7 @@ parser.add_argument('--runseed', type=int, default=0)
 parser.add_argument('--device', type=int, default=0)
 
 # about dataset and dataloader
-parser.add_argument('--input_data_dir', type=str, default='')
+parser.add_argument('--input_data_dir', type=str, default='../../../GraphPT/datasets/molecule_datasets/')
 parser.add_argument('--dataset', type=str, default='tox21') #GEOM_3D_nmol50000_nconf5_nupper1000')
 parser.add_argument('--num_workers', type=int, default=0)
 parser.add_argument("--task", type=str, default="alpha")
@@ -86,7 +86,8 @@ parser.add_argument('--gamma_joaov2', type=float, default=0.1)
 
 # for adaptation
 parser.add_argument('--adapt', type=str,
-                    choices=['mtl', 'gcs', 'gcsMO', 'blo', 'blo+gns', 'gns', 'pcgrad']) ## baselines
+                    choices=['mtl', 'gcs', 'blo', 'blo+gns', 'gns', 'pcgrad',
+                             'rcgrad', 'blo+rcgrad']) ## baselines
 parser.add_argument('--adapt_lr', type=float, default=1e-3)
 parser.add_argument('--max_adapt_iter', type=int, default=3)
 parser.add_argument('--adapt_every', type=int, default=10)
@@ -94,9 +95,7 @@ parser.add_argument('--aux_scale', type=float, default=1)
 parser.add_argument('--aux_net', type=str, choices=['identity', 'linear', 'nonlinear'], default='linear')
 parser.add_argument('--aux_skip_connection', dest='aux_skip_connection', action='store_true')
 parser.add_argument('--no_aux_skip_connection', dest='aux_skip_connection', action='store_false')
-#parser.add_argument('--gen_aux_tasks', type=int, default=0)
-#parser.add_argument('--ttt', dest='test_time_training', action='store_true')
-#parser.set_defaults(test_time_training=True)
+
 
 # about if we would print out eval metric for training data
 parser.add_argument('--eval_train', dest='eval_train', action='store_true')
