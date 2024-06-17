@@ -4,7 +4,7 @@ from multiprocessing import Pool
 
 import tqdm
 
-BOND_FEATURES = ['BondType', 'BondDir']
+BOND_FEATURES = ["BondType", "BondDir"]
 
 
 def atom_to_vocab(mol, atom):
@@ -46,7 +46,7 @@ def bond_to_vocab(mol, bond):
             if a_idx in two_indices:
                 continue
             tmp_bond = mol.GetBondBetweenAtoms(nei_atom.GetIdx(), a_idx)
-            nei[str(nei_atom.GetSymbol()) + '-' + get_bond_feature_name(tmp_bond)] += 1
+            nei[str(nei_atom.GetSymbol()) + "-" + get_bond_feature_name(tmp_bond)] += 1
     keys = list(nei.keys())
     keys.sort()
     output = get_bond_feature_name(bond)
@@ -65,11 +65,18 @@ def get_bond_feature_name(bond):
         fea = eval(f"bond.Get{bond_feature}")()
         ret.append(str(fea))
 
-    return '(' + '-'.join(ret) + ')'
+    return "(" + "-".join(ret) + ")"
 
 
 class TorchVocab(object):
-    def __init__(self, counter, max_size=None, min_freq=1, specials=('<pad>', '<other>'), vocab_type='atom'):
+    def __init__(
+        self,
+        counter,
+        max_size=None,
+        min_freq=1,
+        specials=("<pad>", "<other>"),
+        vocab_type="atom",
+    ):
         """
         :param counter:
         :param max_size:
@@ -80,10 +87,10 @@ class TorchVocab(object):
         self.freqs = counter
         counter = counter.copy()
         min_freq = max(min_freq, 1)
-        if vocab_type in ('atom', 'bond'):
+        if vocab_type in ("atom", "bond"):
             self.vocab_type = vocab_type
         else:
-            raise ValueError('Wrong input for vocab_type!')
+            raise ValueError("Wrong input for vocab_type!")
         self.itos = list(specials)
 
         max_size = None if max_size is None else max_size + len(self.itos)
@@ -130,14 +137,23 @@ class TorchVocab(object):
 
 
 class MolVocab(TorchVocab):
-    def __init__(self, molecule_list, max_size=None, min_freq=1, num_workers=1, total_lines=None, vocab_type='atom'):
-        if vocab_type in ('atom', 'bond'):
+    def __init__(
+        self,
+        molecule_list,
+        max_size=None,
+        min_freq=1,
+        num_workers=1,
+        total_lines=None,
+        vocab_type="atom",
+    ):
+        if vocab_type in ("atom", "bond"):
             self.vocab_type = vocab_type
         else:
-            raise ValueError('Wrong input for vocab_type!')
+            raise ValueError("Wrong input for vocab_type!")
         print("Building {} vocab from molecule-list".format((self.vocab_type)))
 
         from rdkit import RDLogger
+
         lg = RDLogger.logger()
         lg.setLevel(RDLogger.CRITICAL)
 
@@ -153,9 +169,18 @@ class MolVocab(TorchVocab):
         for i in range(int(total_lines / batch + 1)):
             start = int(batch * i)
             end = min(total_lines, batch * (i + 1))
-            res.append(pool.apply_async(MolVocab.read_counter_from_molecules,
-                                        args=(molecule_list, start, end, vocab_type,),
-                                        callback=callback))
+            res.append(
+                pool.apply_async(
+                    MolVocab.read_counter_from_molecules,
+                    args=(
+                        molecule_list,
+                        start,
+                        end,
+                        vocab_type,
+                    ),
+                    callback=callback,
+                )
+            )
         pool.close()
         pool.join()
         for r in res:
@@ -164,7 +189,9 @@ class MolVocab(TorchVocab):
                 if k not in counter:
                     counter[k] = 0
                 counter[k] += sub_counter[k]
-        super().__init__(counter, max_size=max_size, min_freq=min_freq, vocab_type=vocab_type)
+        super().__init__(
+            counter, max_size=max_size, min_freq=min_freq, vocab_type=vocab_type
+        )
 
     @staticmethod
     def read_counter_from_molecules(molecule_list, start, end, vocab_type):
@@ -174,7 +201,7 @@ class MolVocab(TorchVocab):
                 continue
             if i >= end:
                 break
-            if vocab_type == 'atom':
+            if vocab_type == "atom":
                 for atom in mol.GetAtoms():
                     v = atom_to_vocab(mol, atom)
                     sub_counter[v] += 1
@@ -186,6 +213,6 @@ class MolVocab(TorchVocab):
         return sub_counter
 
     @staticmethod
-    def load_vocab(vocab_path: str) -> 'MolVocab':
+    def load_vocab(vocab_path: str) -> "MolVocab":
         with open(vocab_path, "rb") as f:
             return pickle.load(f)

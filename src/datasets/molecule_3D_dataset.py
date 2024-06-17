@@ -6,17 +6,30 @@ from torch_geometric.data import Data, InMemoryDataset
 
 
 class Molecule3DDataset(InMemoryDataset):
-    def __init__(self, root, dataset='zinc250k',
-                 transform=None, pre_transform=None, pre_filter=None, empty=False):
+    def __init__(
+        self,
+        root,
+        dataset="zinc250k",
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        empty=False,
+    ):
         self.dataset = dataset
         self.root = root
 
-        super(Molecule3DDataset, self).__init__(root, transform, pre_transform, pre_filter)
-        self.transform, self.pre_transform, self.pre_filter = transform, pre_transform, pre_filter
+        super(Molecule3DDataset, self).__init__(
+            root, transform, pre_transform, pre_filter
+        )
+        self.transform, self.pre_transform, self.pre_filter = (
+            transform,
+            pre_transform,
+            pre_filter,
+        )
 
         if not empty:
             self.data, self.slices = torch.load(self.processed_paths[0])
-        print('Dataset: {}\nData: {}'.format(self.dataset, self.data))
+        print("Dataset: {}\nData: {}".format(self.dataset, self.data))
 
     def get(self, idx):
         data = Data()
@@ -33,7 +46,7 @@ class Molecule3DDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return 'geometric_data_processed.pt'
+        return "geometric_data_processed.pt"
 
     def download(self):
         return

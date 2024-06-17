@@ -20,14 +20,24 @@ except ImportError:
 
 class SchNet(torch.nn.Module):
 
-    def __init__(self, hidden_channels=128, num_filters=128,
-                 num_interactions=6, num_gaussians=50, cutoff=10.0,
-                 readout='mean', dipole=False, mean=None, std=None, atomref=None):
+    def __init__(
+        self,
+        hidden_channels=128,
+        num_filters=128,
+        num_interactions=6,
+        num_gaussians=50,
+        cutoff=10.0,
+        readout="mean",
+        dipole=False,
+        mean=None,
+        std=None,
+        atomref=None,
+    ):
         super(SchNet, self).__init__()
 
-        assert readout in ['add', 'sum', 'mean']
+        assert readout in ["add", "sum", "mean"]
 
-        self.readout = 'add' if dipole else readout
+        self.readout = "add" if dipole else readout
         self.num_interactions = num_interactions
         self.hidden_channels = hidden_channels
         self.num_gaussians = num_gaussians
@@ -40,7 +50,7 @@ class SchNet(torch.nn.Module):
         self.std = std
 
         atomic_mass = torch.from_numpy(ase.data.atomic_masses)
-        self.register_buffer('atomic_mass', atomic_mass)
+        self.register_buffer("atomic_mass", atomic_mass)
 
         # self.embedding = Embedding(100, hidden_channels)
         self.embedding = Embedding(119, hidden_channels)
@@ -48,8 +58,9 @@ class SchNet(torch.nn.Module):
 
         self.interactions = ModuleList()
         for _ in range(num_interactions):
-            block = InteractionBlock(hidden_channels, num_gaussians,
-                                     num_filters, cutoff)
+            block = InteractionBlock(
+                hidden_channels, num_gaussians, num_filters, cutoff
+            )
             self.interactions.append(block)
 
         # TODO: double-check hidden size
@@ -57,7 +68,7 @@ class SchNet(torch.nn.Module):
         self.act = ShiftedSoftplus()
         self.lin2 = Linear(hidden_channels, hidden_channels)
 
-        self.register_buffer('initial_atomref', atomref)
+        self.register_buffer("initial_atomref", atomref)
         self.atomref = None
         if atomref is not None:
             self.atomref = Embedding(100, 1)
@@ -78,7 +89,7 @@ class SchNet(torch.nn.Module):
 
     def forward(self, z, pos, batch=None):
         print(z.dim(), z.dtype)
-        #assert z.dim() == 1 and z.dtype == torch.long
+        # assert z.dim() == 1 and z.dtype == torch.long
         batch = torch.zeros_like(z) if batch is None else batch
 
         h = self.embedding(z)
@@ -118,12 +129,14 @@ class SchNet(torch.nn.Module):
         return out
 
     def __repr__(self):
-        return (f'{self.__class__.__name__}('
-                f'hidden_channels={self.hidden_channels}, '
-                f'num_filters={self.num_filters}, '
-                f'num_interactions={self.num_interactions}, '
-                f'num_gaussians={self.num_gaussians}, '
-                f'cutoff={self.cutoff})')
+        return (
+            f"{self.__class__.__name__}("
+            f"hidden_channels={self.hidden_channels}, "
+            f"num_filters={self.num_filters}, "
+            f"num_interactions={self.num_interactions}, "
+            f"num_gaussians={self.num_gaussians}, "
+            f"cutoff={self.cutoff})"
+        )
 
 
 class InteractionBlock(torch.nn.Module):
@@ -134,8 +147,9 @@ class InteractionBlock(torch.nn.Module):
             ShiftedSoftplus(),
             Linear(num_filters, num_filters),
         )
-        self.conv = CFConv(hidden_channels, hidden_channels,
-                           num_filters, self.mlp, cutoff)
+        self.conv = CFConv(
+            hidden_channels, hidden_channels, num_filters, self.mlp, cutoff
+        )
         self.act = ShiftedSoftplus()
         self.lin = Linear(hidden_channels, hidden_channels)
 
@@ -159,7 +173,7 @@ class InteractionBlock(torch.nn.Module):
 
 class CFConv(MessagePassing):
     def __init__(self, in_channels, out_channels, num_filters, nn, cutoff):
-        super(CFConv, self).__init__(aggr='add')
+        super(CFConv, self).__init__(aggr="add")
         self.lin1 = Linear(in_channels, num_filters, bias=False)
         self.lin2 = Linear(num_filters, out_channels)
         self.nn = nn
@@ -191,7 +205,7 @@ class GaussianSmearing(torch.nn.Module):
         super(GaussianSmearing, self).__init__()
         offset = torch.linspace(start, stop, num_gaussians)
         self.coeff = -0.5 / (offset[1] - offset[0]).item() ** 2
-        self.register_buffer('offset', offset)
+        self.register_buffer("offset", offset)
 
     def forward(self, dist):
         dist = dist.view(-1, 1) - self.offset.view(1, -1)

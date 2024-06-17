@@ -8,7 +8,7 @@ class Hypergrad:
 
     """
 
-    def __init__(self, learning_rate=.1, truncate_iter=3):
+    def __init__(self, learning_rate=0.1, truncate_iter=3):
         self.learning_rate = learning_rate
         self.truncate_iter = truncate_iter
 
@@ -22,26 +22,20 @@ class Hypergrad:
         :return:
         """
         dloss_val_dparams = torch.autograd.grad(
-            loss_val,
-            params,
-            retain_graph=True,
-            allow_unused=True
+            loss_val, params, retain_graph=True, allow_unused=True
         )
 
-        #dloss_train_dparams = torch.autograd.grad(
+        # dloss_train_dparams = torch.autograd.grad(
         #        loss_train,
         #        params,
         #        allow_unused=True,
         #        create_graph=True,
-        #)
+        # )
 
         v2 = self._approx_inverse_hvp(dloss_val_dparams, dloss_train_dparams, params)
 
         v3 = torch.autograd.grad(
-            dloss_train_dparams,
-            aux_params,
-            grad_outputs=v2,
-            allow_unused=True
+            dloss_train_dparams, aux_params, grad_outputs=v2, allow_unused=True
         )
 
         # note we omit dL_v/d_lambda since it is zero in our settings
@@ -59,14 +53,16 @@ class Hypergrad:
 
         for _ in range(self.truncate_iter):
             grad = torch.autograd.grad(
-                    dloss_train_dparams,
-                    params,
-                    grad_outputs=v,
-                    retain_graph=True,
-                    allow_unused=True
-                )
+                dloss_train_dparams,
+                params,
+                grad_outputs=v,
+                retain_graph=True,
+                allow_unused=True,
+            )
 
-            grad = [g * self.learning_rate for g in grad]  # scale: this a is key for convergence
+            grad = [
+                g * self.learning_rate for g in grad
+            ]  # scale: this a is key for convergence
 
             v = [curr_v - curr_g for (curr_v, curr_g) in zip(v, grad)]
             # note: different than the pseudo code in the paper

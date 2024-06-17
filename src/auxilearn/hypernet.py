@@ -9,6 +9,7 @@ class HyperNet(nn.Module):
     We can think of this as our learnable loss criterion
 
     """
+
     def __init__(self, main_task, input_dim):
         super().__init__()
         self.main_task = main_task
@@ -37,9 +38,8 @@ class HyperNet(nn.Module):
 
 
 class MonoHyperNet(HyperNet):
-    """Monotonic Hypernets
+    """Monotonic Hypernets"""
 
-    """
     def __init__(self, main_task, input_dim, clamp_bias=False):
         super().__init__(main_task=main_task, input_dim=input_dim)
         self.clamp_bias = clamp_bias
@@ -65,10 +65,16 @@ class Identity(nn.Module):
 
 
 class LinearHyperNet(HyperNet):
-    """Linear weights, e.g. \sum_j \alpha_j * l_j
+    """Linear weights, e.g. \sum_j \alpha_j * l_j"""
 
-    """
-    def __init__(self, main_task, input_dim, skip_connection=False, init_value=1., weight_normalization=True):
+    def __init__(
+        self,
+        main_task,
+        input_dim,
+        skip_connection=False,
+        init_value=1.0,
+        weight_normalization=True,
+    ):
         super().__init__(main_task=main_task, input_dim=main_task)
 
         self.init_value = init_value
@@ -93,13 +99,20 @@ class LinearHyperNet(HyperNet):
 
 
 class MonoLinearHyperNet(MonoHyperNet):
-    """Linear weights, e.g. \sum_j \alpha_j * l_j
+    """Linear weights, e.g. \sum_j \alpha_j * l_j"""
 
-    """
     def __init__(
-        self, main_task, input_dim, skip_connection=False, clamp_bias=False, init_value=1., weight_normalization=True
+        self,
+        main_task,
+        input_dim,
+        skip_connection=False,
+        clamp_bias=False,
+        init_value=1.0,
+        weight_normalization=True,
     ):
-        super().__init__(main_task=main_task, input_dim=main_task, clamp_bias=clamp_bias)
+        super().__init__(
+            main_task=main_task, input_dim=main_task, clamp_bias=clamp_bias
+        )
 
         self.init_value = init_value
         self.skip_connection = skip_connection
@@ -122,9 +135,7 @@ class MonoLinearHyperNet(MonoHyperNet):
         return loss
 
     def clamp(self):
-        """make sure parameters are non-negative
-
-        """
+        """make sure parameters are non-negative"""
         if self.weight_normalization:
             self.linear.weight_v.data.clamp_(0)
             self.linear.weight_g.data.clamp_(0)
@@ -144,10 +155,10 @@ class NonlinearHyperNet(HyperNet):
         hidden_sizes=1,
         nonlinearity=None,
         bias=True,
-        dropout_rate=0.,
+        dropout_rate=0.0,
         init_upper=None,
         init_lower=None,
-        weight_normalization=True
+        weight_normalization=True,
     ):
         super().__init__(main_task=main_task, input_dim=input_dim)
 
@@ -165,13 +176,25 @@ class NonlinearHyperNet(HyperNet):
 
         for j in range(len(dims) - 2):
             self.layers.append(
-                self._get_layer(dims[j], dims[j + 1], init_upper=init_upper, init_lower=init_lower, bias=bias)
+                self._get_layer(
+                    dims[j],
+                    dims[j + 1],
+                    init_upper=init_upper,
+                    init_lower=init_lower,
+                    bias=bias,
+                )
             )
             self.layers.append(self.nonlinearity)
             self.layers.append(self.dropout)
 
         self.layers.append(
-            self._get_layer(dims[-2], dims[-1], init_upper=init_upper, init_lower=init_lower, bias=False)
+            self._get_layer(
+                dims[-2],
+                dims[-1],
+                init_upper=init_upper,
+                init_lower=init_lower,
+                bias=False,
+            )
         )
 
         self.net = nn.Sequential(*self.layers)
@@ -194,12 +217,12 @@ class NonlinearHyperNet(HyperNet):
 
     @staticmethod
     def _init_layer(layer, init_lower, init_upper):
-        b = init_upper if init_upper is not None else 1.
-        a = init_lower if init_lower is not None else 0.
+        b = init_upper if init_upper is not None else 1.0
+        a = init_lower if init_lower is not None else 0.0
         if isinstance(layer, nn.Linear):
             layer.weight = nn.init.uniform_(layer.weight, b=b, a=a)
             if layer.bias is not None:
-                layer.bias = nn.init.constant_(layer.bias, 0.)
+                layer.bias = nn.init.constant_(layer.bias, 0.0)
 
     def forward(self, losses, outputs=None, labels=None, data=None):
         main_loss = losses[:, self.main_task].mean()
@@ -215,10 +238,10 @@ class MonoNonlinearHyperNet(MonoHyperNet):
         hidden_sizes=1,
         nonlinearity=None,
         bias=True,
-        dropout_rate=0.,
+        dropout_rate=0.0,
         init_upper=None,
         init_lower=None,
-        weight_normalization=True
+        weight_normalization=True,
     ):
         super().__init__(main_task=main_task, input_dim=input_dim)
 
@@ -239,13 +262,25 @@ class MonoNonlinearHyperNet(MonoHyperNet):
 
         for j in range(len(dims) - 2):
             self.layers.append(
-                self._get_layer(dims[j], dims[j + 1], init_upper=init_upper, init_lower=init_lower, bias=bias)
+                self._get_layer(
+                    dims[j],
+                    dims[j + 1],
+                    init_upper=init_upper,
+                    init_lower=init_lower,
+                    bias=bias,
+                )
             )
             self.layers.append(self.nonlinearity)
             self.layers.append(self.dropout)
 
         self.layers.append(
-            self._get_layer(dims[-2], dims[-1], init_upper=init_upper, init_lower=init_lower, bias=False)
+            self._get_layer(
+                dims[-2],
+                dims[-1],
+                init_upper=init_upper,
+                init_lower=init_lower,
+                bias=False,
+            )
         )
 
         self.net = nn.Sequential(*self.layers).double()
@@ -268,12 +303,12 @@ class MonoNonlinearHyperNet(MonoHyperNet):
 
     @staticmethod
     def _init_layer(layer, init_lower, init_upper):
-        b = init_upper if init_upper is not None else 1.
-        a = init_lower if init_lower is not None else 0.
+        b = init_upper if init_upper is not None else 1.0
+        a = init_lower if init_lower is not None else 0.0
         if isinstance(layer, nn.Linear):
             layer.weight = nn.init.uniform_(layer.weight, b=b, a=a)
             if layer.bias is not None:
-                layer.bias = nn.init.constant_(layer.bias, 0.)
+                layer.bias = nn.init.constant_(layer.bias, 0.0)
 
     def forward(self, losses, outputs=None, labels=None, data=None):
         main_loss = losses[self.main_task].mean()
@@ -297,25 +332,53 @@ class NoFCCNNHyperNet(HyperNet):
     # NYU Input shape is (3, 288, 384)
 
     def __init__(
-        self, main_task, reduction='mean', input_channels=3, init_upper=.1, init_lower=0, weight_normalization=False
+        self,
+        main_task,
+        reduction="mean",
+        input_channels=3,
+        init_upper=0.1,
+        init_lower=0,
+        weight_normalization=False,
     ):
         super().__init__(input_dim=-1, main_task=main_task)
 
         self.main_task = main_task
-        assert reduction in ['mean', 'sum']
+        assert reduction in ["mean", "sum"]
         self.reduction = reduction
         self.weight_normalization = weight_normalization
 
         self.conv = nn.Sequential(
             self._get_layer(
-                input_channels, 8, kernel_size=3, stride=1, padding=1, init_lower=init_lower, init_upper=init_upper
+                input_channels,
+                8,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                init_lower=init_lower,
+                init_upper=init_upper,
             ),
             nn.Softplus(),
             nn.AvgPool2d(kernel_size=2, padding=0),
-            self._get_layer(8, 16, kernel_size=3, stride=1, padding=1, init_lower=init_lower, init_upper=init_upper),
+            self._get_layer(
+                8,
+                16,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                init_lower=init_lower,
+                init_upper=init_upper,
+            ),
             nn.Softplus(),
             nn.AvgPool2d(kernel_size=2, padding=0),
-            self._get_layer(16, 32, kernel_size=3, stride=1, padding=1, init_lower=init_lower, init_upper=init_upper),
+            self._get_layer(
+                16,
+                32,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                init_lower=init_lower,
+                init_upper=init_upper,
+            ),
             nn.Softplus(),
             nn.AvgPool2d(kernel_size=2, padding=0),
             self._get_layer(32, 1, kernel_size=1, bias=False),
@@ -338,7 +401,7 @@ class NoFCCNNHyperNet(HyperNet):
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
-            bias=bias
+            bias=bias,
         )
         self._init_layer(layer, init_upper=init_upper, init_lower=init_lower)
         if self.weight_normalization:
@@ -347,18 +410,18 @@ class NoFCCNNHyperNet(HyperNet):
 
     @staticmethod
     def _init_layer(layer, init_lower, init_upper):
-        b = init_upper if init_upper is not None else 1.
-        a = init_lower if init_lower is not None else 0.
+        b = init_upper if init_upper is not None else 1.0
+        a = init_lower if init_lower is not None else 0.0
         if isinstance(layer, (nn.Linear, nn.Conv2d)):
             layer.weight = nn.init.uniform_(layer.weight, b=b, a=a)
             if layer.bias is not None:
-                layer.bias = nn.init.constant_(layer.bias, 0.)
+                layer.bias = nn.init.constant_(layer.bias, 0.0)
 
     def forward(self, losses, outputs=None, labels=None, data=None):
-        main_loss = .0
+        main_loss = 0.0
         if self.main_task is not None:
             # (bs, tasks, h, w)
-            if self.reduction == 'mean':
+            if self.reduction == "mean":
                 main_loss = losses[:, self.main_task, :, :].mean(dim=(1, 2)).mean(0)
             else:
                 main_loss = losses[:, self.main_task, :, :].sum(dim=(1, 2)).mean(0)
@@ -373,25 +436,52 @@ class MonoNoFCCNNHyperNet(MonoHyperNet):
     # NYU Input shape is (3, 288, 384)
 
     def __init__(
-        self, main_task, reduction='mean', init_upper=.1, init_lower=0., input_channels=3, weight_normalization=False
+        self,
+        main_task,
+        reduction="mean",
+        init_upper=0.1,
+        init_lower=0.0,
+        input_channels=3,
+        weight_normalization=False,
     ):
         super().__init__(input_dim=-1, main_task=main_task)
 
         self.main_task = main_task
-        assert reduction in ['mean', 'sum']
+        assert reduction in ["mean", "sum"]
         self.reduction = reduction
         self.weight_normalization = weight_normalization
 
         self.conv = nn.Sequential(
             self._get_layer(
-                input_channels, 8, kernel_size=3, stride=1, padding=1, init_lower=init_lower, init_upper=init_upper
+                input_channels,
+                8,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                init_lower=init_lower,
+                init_upper=init_upper,
             ),
             nn.Softplus(),
             nn.AvgPool2d(kernel_size=2, padding=0),
-            self._get_layer(8, 16, kernel_size=3, stride=1, padding=1, init_lower=init_lower, init_upper=init_upper),
+            self._get_layer(
+                8,
+                16,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                init_lower=init_lower,
+                init_upper=init_upper,
+            ),
             nn.Softplus(),
             nn.AvgPool2d(kernel_size=2, padding=0),
-            self._get_layer(16, 1, kernel_size=1, bias=False, init_lower=init_lower, init_upper=init_upper),
+            self._get_layer(
+                16,
+                1,
+                kernel_size=1,
+                bias=False,
+                init_lower=init_lower,
+                init_upper=init_upper,
+            ),
         )
 
     def _get_layer(
@@ -411,7 +501,7 @@ class MonoNoFCCNNHyperNet(MonoHyperNet):
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
-            bias=bias
+            bias=bias,
         )
         self._init_layer(layer, init_upper=init_upper, init_lower=init_lower)
         if self.weight_normalization:
@@ -420,18 +510,18 @@ class MonoNoFCCNNHyperNet(MonoHyperNet):
 
     @staticmethod
     def _init_layer(layer, init_lower, init_upper):
-        b = init_upper if init_upper is not None else 1.
-        a = init_lower if init_lower is not None else 0.
+        b = init_upper if init_upper is not None else 1.0
+        a = init_lower if init_lower is not None else 0.0
         if isinstance(layer, (nn.Linear, nn.Conv2d)):
             layer.weight = nn.init.uniform_(layer.weight, b=b, a=a)
             if layer.bias is not None:
-                layer.bias = nn.init.constant_(layer.bias, 0.)
+                layer.bias = nn.init.constant_(layer.bias, 0.0)
 
     def forward(self, losses, outputs=None, labels=None, data=None):
-        main_loss = .0
+        main_loss = 0.0
         if self.main_task is not None:
             # (bs, tasks, h, w)
-            if self.reduction == 'mean':
+            if self.reduction == "mean":
                 main_loss = losses[:, self.main_task, :, :].mean(dim=(1, 2)).mean(0)
             else:
                 main_loss = losses[:, self.main_task, :, :].sum(dim=(1, 2)).mean(0)

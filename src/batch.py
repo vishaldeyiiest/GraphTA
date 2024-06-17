@@ -11,7 +11,7 @@ class BatchMasking(Data):
 
     def __init__(self, batch=None, **kwargs):
         super(BatchMasking, self).__init__(**kwargs)
-        self.batch = batch # type: ignore
+        self.batch = batch  # type: ignore
 
     @staticmethod
     def from_data_list(data_list):
@@ -20,13 +20,13 @@ class BatchMasking(Data):
         The assignment vector :obj:`batch` is created on the fly."""
         keys = [set(data.keys) for data in data_list]
         keys = list(set.union(*keys))
-        assert 'batch' not in keys
+        assert "batch" not in keys
 
         batch = BatchMasking()
 
         for key in keys:
             batch[key] = []
-        batch.batch = [] # type: ignore
+        batch.batch = []  # type: ignore
 
         cumsum_node = 0
         cumsum_edge = 0
@@ -36,9 +36,9 @@ class BatchMasking(Data):
             batch.batch.append(torch.full((num_nodes,), i, dtype=torch.long))
             for key in data.keys:
                 item = data[key]
-                if key in ['edge_index', 'masked_atom_indices']:
+                if key in ["edge_index", "masked_atom_indices"]:
                     item = item + cumsum_node
-                elif key == 'connected_edge_indices':
+                elif key == "connected_edge_indices":
                     item = item + cumsum_edge
                 batch[key].append(item)
 
@@ -46,8 +46,10 @@ class BatchMasking(Data):
             cumsum_edge += data.edge_index.shape[1]
 
         for key in keys:
-            batch[key] = torch.cat(batch[key], dim=data_list[0].__cat_dim__(key, batch[key][0]))
-        batch.batch = torch.cat(batch.batch, dim=-1) # type: ignore
+            batch[key] = torch.cat(
+                batch[key], dim=data_list[0].__cat_dim__(key, batch[key][0])
+            )
+        batch.batch = torch.cat(batch.batch, dim=-1)  # type: ignore
         return batch.contiguous()
 
     def cumsum(self, key, item):
@@ -57,9 +59,12 @@ class BatchMasking(Data):
             This method is for internal use only, and should only be overridden
             if the batch concatenation process is corrupted for a specific data
             attribute."""
-        return key in ['edge_index', 'face',
-                       'masked_atom_indices',
-                       'connected_edge_indices']
+        return key in [
+            "edge_index",
+            "face",
+            "masked_atom_indices",
+            "connected_edge_indices",
+        ]
 
     @property
     def num_graphs(self):
@@ -72,11 +77,11 @@ class BatchAE(Data):
     (disconnected) graph. With :class:`torch_geometric.data.Data` being the
     base class, all its methods can also be used here.
     In addition, single graphs can be reconstructed via the assignment vector
-    :obj:`batch`, which maps each node to its respective graph identifier. """
+    :obj:`batch`, which maps each node to its respective graph identifier."""
 
     def __init__(self, batch=None, **kwargs):
         super(BatchAE, self).__init__(**kwargs)
-        self.batch = batch # type: ignore
+        self.batch = batch  # type: ignore
 
     @staticmethod
     def from_data_list(data_list):
@@ -85,13 +90,13 @@ class BatchAE(Data):
         The assignment vector :obj:`batch` is created on the fly."""
         keys = [set(data.keys) for data in data_list]
         keys = list(set.union(*keys))
-        assert 'batch' not in keys
+        assert "batch" not in keys
 
         batch = BatchAE()
 
         for key in keys:
             batch[key] = []
-        batch.batch = [] # type: ignore
+        batch.batch = []  # type: ignore
 
         cumsum_node = 0
 
@@ -100,25 +105,24 @@ class BatchAE(Data):
             batch.batch.append(torch.full((num_nodes,), i, dtype=torch.long))
             for key in data.keys:
                 item = data[key]
-                if key in ['edge_index', 'negative_edge_index']:
+                if key in ["edge_index", "negative_edge_index"]:
                     item = item + cumsum_node
                 batch[key].append(item)
 
             cumsum_node += num_nodes
 
         for key in keys:
-            batch[key] = torch.cat(
-                batch[key], dim=batch.__cat_dim__(key))
-        batch.batch = torch.cat(batch.batch, dim=-1) # type: ignore
+            batch[key] = torch.cat(batch[key], dim=batch.__cat_dim__(key))
+        batch.batch = torch.cat(batch.batch, dim=-1)  # type: ignore
         return batch.contiguous()
 
     @property
     def num_graphs(self):
-        '''Returns the number of graphs in the batch.'''
+        """Returns the number of graphs in the batch."""
         return self.batch[-1].item() + 1
 
     def __cat_dim__(self, key):
-        return -1 if key in ['edge_index', 'negative_edge_index'] else 0
+        return -1 if key in ["edge_index", "negative_edge_index"] else 0
 
 
 class BatchSubstructContext(Data):
@@ -126,13 +130,13 @@ class BatchSubstructContext(Data):
     (disconnected) graph. With :class:`torch_geometric.data.Data` being the
     base class, all its methods can also be used here.
     In addition, single graphs can be reconstructed via the assignment vector
-    :obj:`batch`, which maps each node to its respective graph identifier. """
+    :obj:`batch`, which maps each node to its respective graph identifier."""
 
-    ''' Specialized batching for substructure context pair! '''
+    """ Specialized batching for substructure context pair! """
 
     def __init__(self, batch=None, **kwargs):
         super(BatchSubstructContext, self).__init__(**kwargs)
-        self.batch = batch # type: ignore
+        self.batch = batch  # type: ignore
 
     @staticmethod
     def from_data_list(data_list):
@@ -142,15 +146,20 @@ class BatchSubstructContext(Data):
 
         batch = BatchSubstructContext()
         keys = [
-            'center_substruct_idx', 'edge_attr_substruct',
-            'edge_index_substruct', 'x_substruct', 'overlap_context_substruct_idx',
-            'edge_attr_context', 'edge_index_context', 'x_context'
+            "center_substruct_idx",
+            "edge_attr_substruct",
+            "edge_index_substruct",
+            "x_substruct",
+            "overlap_context_substruct_idx",
+            "edge_attr_context",
+            "edge_index_context",
+            "x_context",
         ]
 
         for key in keys:
             batch[key] = []
 
-        batch.batch = [] # type: ignore
+        batch.batch = []  # type: ignore
         batch.batch_overlapped_context = []
         batch.overlapped_context_size = []
 
@@ -161,26 +170,39 @@ class BatchSubstructContext(Data):
         i = 0
 
         for data in data_list:
-            if hasattr(data, 'x_context'):
+            if hasattr(data, "x_context"):
                 num_nodes = data.num_nodes
                 num_nodes_substruct = len(data.x_substruct)
                 num_nodes_context = len(data.x_context)
 
                 batch.batch.append(torch.full((num_nodes,), i, dtype=torch.long))
                 batch.batch_overlapped_context.append(
-                    torch.full((len(data.overlap_context_substruct_idx),), i, dtype=torch.long))
-                batch.overlapped_context_size.append(len(data.overlap_context_substruct_idx))
+                    torch.full(
+                        (len(data.overlap_context_substruct_idx),), i, dtype=torch.long
+                    )
+                )
+                batch.overlapped_context_size.append(
+                    len(data.overlap_context_substruct_idx)
+                )
 
                 # batching for the substructure graph
-                for key in ['center_substruct_idx', 'edge_attr_substruct',
-                            'edge_index_substruct', 'x_substruct']:
+                for key in [
+                    "center_substruct_idx",
+                    "edge_attr_substruct",
+                    "edge_index_substruct",
+                    "x_substruct",
+                ]:
                     item = data[key]
                     item = item + cumsum_substruct if batch.cumsum(key, item) else item
                     batch[key].append(item)
 
                 # batching for the context graph
-                for key in ['overlap_context_substruct_idx', 'edge_attr_context',
-                            'edge_index_context', 'x_context']:
+                for key in [
+                    "overlap_context_substruct_idx",
+                    "edge_attr_context",
+                    "edge_index_context",
+                    "x_context",
+                ]:
                     item = data[key]
                     item = item + cumsum_context if batch.cumsum(key, item) else item
                     batch[key].append(item)
@@ -192,14 +214,20 @@ class BatchSubstructContext(Data):
 
         for key in keys:
             batch[key] = torch.cat(batch[key], dim=batch.__cat_dim__(key))
-        batch.batch = torch.cat(batch.batch, dim=-1) # type: ignore
-        batch.batch_overlapped_context = torch.cat(batch.batch_overlapped_context, dim=-1)
+        batch.batch = torch.cat(batch.batch, dim=-1)  # type: ignore
+        batch.batch_overlapped_context = torch.cat(
+            batch.batch_overlapped_context, dim=-1
+        )
         batch.overlapped_context_size = torch.LongTensor(batch.overlapped_context_size)
 
         return batch.contiguous()
 
     def __cat_dim__(self, key):
-        return -1 if key in ['edge_index', 'edge_index_substruct', 'edge_index_context'] else 0
+        return (
+            -1
+            if key in ["edge_index", "edge_index_substruct", "edge_index_context"]
+            else 0
+        )
 
     def cumsum(self, key, item):
         """If :obj:`True`, the attribute :obj:`key` with content :obj:`item`
@@ -207,11 +235,14 @@ class BatchSubstructContext(Data):
         .. note::
             This method is for internal use only, and should only be overridden
             if the batch concatenation process is corrupted for a specific data
-            attribute. """
-        return key in ['edge_index', 'edge_index_substruct',
-                       'edge_index_context',
-                       'overlap_context_substruct_idx',
-                       'center_substruct_idx']
+            attribute."""
+        return key in [
+            "edge_index",
+            "edge_index_substruct",
+            "edge_index_context",
+            "overlap_context_substruct_idx",
+            "center_substruct_idx",
+        ]
 
     @property
     def num_graphs(self):
@@ -224,13 +255,13 @@ class BatchSubstructContext3D(Data):
     (disconnected) graph. With :class:`torch_geometric.data.Data` being the
     base class, all its methods can also be used here.
     In addition, single graphs can be reconstructed via the assignment vector
-    :obj:`batch`, which maps each node to its respective graph identifier. """
+    :obj:`batch`, which maps each node to its respective graph identifier."""
 
-    ''' Specialized batching for substructure context pair! '''
+    """ Specialized batching for substructure context pair! """
 
     def __init__(self, batch=None, **kwargs):
-        super(BatchSubstructContext, self).__init__(**kwargs) # type: ignore
-        self.batch = batch # type: ignore
+        super(BatchSubstructContext, self).__init__(**kwargs)  # type: ignore
+        self.batch = batch  # type: ignore
 
     @staticmethod
     def from_data_list(data_list):
@@ -240,16 +271,24 @@ class BatchSubstructContext3D(Data):
 
         batch = BatchSubstructContext()
         keys = [
-            'center_substruct_idx', 'edge_attr_substruct',
-            'edge_index_substruct', 'x_substruct', 'overlap_context_substruct_idx',
-            'edge_attr_context', 'edge_index_context', 'x_context',
-            'positions', 'x', 'edge_attr', 'edge_index'
+            "center_substruct_idx",
+            "edge_attr_substruct",
+            "edge_index_substruct",
+            "x_substruct",
+            "overlap_context_substruct_idx",
+            "edge_attr_context",
+            "edge_index_context",
+            "x_context",
+            "positions",
+            "x",
+            "edge_attr",
+            "edge_index",
         ]
 
         for key in keys:
             batch[key] = []
 
-        batch.batch = [] # type: ignore
+        batch.batch = []  # type: ignore
         batch.batch_overlapped_context = []
         batch.overlapped_context_size = []
 
@@ -260,33 +299,46 @@ class BatchSubstructContext3D(Data):
         i = 0
 
         for data in data_list:
-            if hasattr(data, 'x_context'):
+            if hasattr(data, "x_context"):
                 num_nodes = data.num_nodes
                 num_nodes_substruct = len(data.x_substruct)
                 num_nodes_context = len(data.x_context)
 
                 batch.batch.append(torch.full((num_nodes,), i, dtype=torch.long))
                 batch.batch_overlapped_context.append(
-                    torch.full((len(data.overlap_context_substruct_idx),), i, dtype=torch.long))
-                batch.overlapped_context_size.append(len(data.overlap_context_substruct_idx))
+                    torch.full(
+                        (len(data.overlap_context_substruct_idx),), i, dtype=torch.long
+                    )
+                )
+                batch.overlapped_context_size.append(
+                    len(data.overlap_context_substruct_idx)
+                )
 
                 # batching for the main graph
-                for key in ['x', 'edge_attr', 'edge_index', 'positions']:
+                for key in ["x", "edge_attr", "edge_index", "positions"]:
                     item = data[key]
-                    if key in ['edge_index']:
-                       item = item + cumsum_main
+                    if key in ["edge_index"]:
+                        item = item + cumsum_main
                     batch[key].append(item)
 
                 # batching for the substructure graph
-                for key in ['center_substruct_idx', 'edge_attr_substruct',
-                            'edge_index_substruct', 'x_substruct']:
+                for key in [
+                    "center_substruct_idx",
+                    "edge_attr_substruct",
+                    "edge_index_substruct",
+                    "x_substruct",
+                ]:
                     item = data[key]
                     item = item + cumsum_substruct if batch.cumsum(key, item) else item
                     batch[key].append(item)
 
                 # batching for the context graph
-                for key in ['overlap_context_substruct_idx', 'edge_attr_context',
-                            'edge_index_context', 'x_context']:
+                for key in [
+                    "overlap_context_substruct_idx",
+                    "edge_attr_context",
+                    "edge_index_context",
+                    "x_context",
+                ]:
                     item = data[key]
                     item = item + cumsum_context if batch.cumsum(key, item) else item
                     batch[key].append(item)
@@ -298,14 +350,20 @@ class BatchSubstructContext3D(Data):
 
         for key in keys:
             batch[key] = torch.cat(batch[key], dim=batch.__cat_dim__(key))
-        batch.batch = torch.cat(batch.batch, dim=-1) # type: ignore
-        batch.batch_overlapped_context = torch.cat(batch.batch_overlapped_context, dim=-1)
+        batch.batch = torch.cat(batch.batch, dim=-1)  # type: ignore
+        batch.batch_overlapped_context = torch.cat(
+            batch.batch_overlapped_context, dim=-1
+        )
         batch.overlapped_context_size = torch.LongTensor(batch.overlapped_context_size)
 
         return batch.contiguous()
 
     def __cat_dim__(self, key):
-        return -1 if key in ['edge_index', 'edge_index_substruct', 'edge_index_context'] else 0
+        return (
+            -1
+            if key in ["edge_index", "edge_index_substruct", "edge_index_context"]
+            else 0
+        )
 
     def cumsum(self, key, item):
         """If :obj:`True`, the attribute :obj:`key` with content :obj:`item`
@@ -313,29 +371,33 @@ class BatchSubstructContext3D(Data):
         .. note::
             This method is for internal use only, and should only be overridden
             if the batch concatenation process is corrupted for a specific data
-            attribute. """
-        return key in ['edge_index', 'edge_index_substruct',
-                       'edge_index_context',
-                       'overlap_context_substruct_idx',
-                       'center_substruct_idx']
+            attribute."""
+        return key in [
+            "edge_index",
+            "edge_index_substruct",
+            "edge_index_context",
+            "overlap_context_substruct_idx",
+            "center_substruct_idx",
+        ]
 
     @property
     def num_graphs(self):
         """Returns the number of graphs in the batch."""
         return self.batch[-1].item() + 1
 
+
 class BatchHybrid(Data):
     """A plain old python object modeling a batch of graphs as one big
     (disconnected) graph. With :class:`torch_geometric.data.Data` being the
     base class, all its methods can also be used here.
     In addition, single graphs can be reconstructed via the assignment vector
-    :obj:`batch`, which maps each node to its respective graph identifier. """
+    :obj:`batch`, which maps each node to its respective graph identifier."""
 
-    ''' Specialized batching for substructure context pair! '''
+    """ Specialized batching for substructure context pair! """
 
     def __init__(self, batch=None, **kwargs):
         super(BatchHybrid, self).__init__(**kwargs)
-        self.batch = batch # type: ignore
+        self.batch = batch  # type: ignore
 
     @staticmethod
     def from_data_list(data_list):
@@ -344,20 +406,38 @@ class BatchHybrid(Data):
         The assignment vector :obj:`batch` is created on the fly."""
 
         batch = BatchHybrid()
-        keys = [set(data.keys) for data in data_list]
-        keys = set.union(*keys).intersection(set(
-            ['masked_atom_indices', 'connected_edge_indices', 'mask_node_label', 'masked_x',
-             'negative_edge_index',
-            'center_substruct_idx', 'edge_attr_substruct',
-            'edge_index_substruct', 'x_substruct', 'overlap_context_substruct_idx',
-            'edge_attr_context', 'edge_index_context', 'x_context',
-            'positions', 'x', 'edge_attr', 'edge_index', 'y', 'motif_label']))
+        keys = [set(data.keys()) for data in data_list]
+        keys = set.union(*keys).intersection(
+            set(
+                [
+                    "masked_atom_indices",
+                    "connected_edge_indices",
+                    "mask_node_label",
+                    "masked_x",
+                    "negative_edge_index",
+                    "center_substruct_idx",
+                    "edge_attr_substruct",
+                    "edge_index_substruct",
+                    "x_substruct",
+                    "overlap_context_substruct_idx",
+                    "edge_attr_context",
+                    "edge_index_context",
+                    "x_context",
+                    "positions",
+                    "x",
+                    "edge_attr",
+                    "edge_index",
+                    "y",
+                    "motif_label",
+                ]
+            )
+        )
         keys = list(keys)
 
         for key in keys:
             batch[key] = []
 
-        batch.batch = [] # type: ignore
+        batch.batch = []  # type: ignore
         batch.batch_overlapped_context = []
         batch.overlapped_context_size = []
 
@@ -369,44 +449,83 @@ class BatchHybrid(Data):
         main_graph_counter, subgraph_counter = 0, 0
         for data in data_list:
             num_nodes = data.num_nodes
-            batch.batch.append(torch.full((num_nodes,), main_graph_counter, dtype=torch.long))
+            batch.batch.append(
+                torch.full((num_nodes,), main_graph_counter, dtype=torch.long)
+            )
             # batching for the main graph
-            for key in set(keys).intersection(set(['x', 'edge_attr', 'edge_index', 'positions', 
-                        'masked_atom_indices', 'mask_node_label', 'masked_x',
-                        'negative_edge_index', 'connected_edge_indices', 'y', 'motif_label'])):
+            for key in set(keys).intersection(
+                set(
+                    [
+                        "x",
+                        "edge_attr",
+                        "edge_index",
+                        "positions",
+                        "masked_atom_indices",
+                        "mask_node_label",
+                        "masked_x",
+                        "negative_edge_index",
+                        "connected_edge_indices",
+                        "y",
+                        "motif_label",
+                    ]
+                )
+            ):
                 item = data[key]
-                if key in ['edge_index', 'masked_atom_indices', 'negative_edge_index']:
+                if key in ["edge_index", "masked_atom_indices", "negative_edge_index"]:
                     item = item + cumsum_main_nodes
-                if key == 'connected_edge_indices':
+                if key == "connected_edge_indices":
                     item = item + cumsum_main_edges
                 batch[key].append(item)
 
             # the entire logic block has to be within if statement because some data points may not have context
-            if hasattr(data, 'x_context') and hasattr(data, 'x_substruct'):
+            if hasattr(data, "x_context") and hasattr(data, "x_substruct"):
 
                 num_nodes_substruct = len(data.x_substruct)
-                num_nodes_context = len(data.x_context)    
+                num_nodes_context = len(data.x_context)
                 batch.batch_overlapped_context.append(
-                    torch.full((len(data.overlap_context_substruct_idx),), subgraph_counter, dtype=torch.long))
-                batch.overlapped_context_size.append(len(data.overlap_context_substruct_idx))
+                    torch.full(
+                        (len(data.overlap_context_substruct_idx),),
+                        subgraph_counter,
+                        dtype=torch.long,
+                    )
+                )
+                batch.overlapped_context_size.append(
+                    len(data.overlap_context_substruct_idx)
+                )
 
                 # batching for the substructure graph
-                for key in set(keys).intersection(set(['center_substruct_idx', 'edge_attr_substruct',
-                            'edge_index_substruct', 'x_substruct'])):
+                for key in set(keys).intersection(
+                    set(
+                        [
+                            "center_substruct_idx",
+                            "edge_attr_substruct",
+                            "edge_index_substruct",
+                            "x_substruct",
+                        ]
+                    )
+                ):
                     item = data[key]
                     item = item + cumsum_substruct if batch.cumsum(key, item) else item
                     batch[key].append(item)
 
                 # batching for the context graph
-                for key in set(keys).intersection(set(['overlap_context_substruct_idx', 'edge_attr_context',
-                            'edge_index_context', 'x_context'])):
+                for key in set(keys).intersection(
+                    set(
+                        [
+                            "overlap_context_substruct_idx",
+                            "edge_attr_context",
+                            "edge_index_context",
+                            "x_context",
+                        ]
+                    )
+                ):
                     item = data[key]
                     item = item + cumsum_context if batch.cumsum(key, item) else item
                     batch[key].append(item)
                 cumsum_substruct += num_nodes_substruct
                 cumsum_context += num_nodes_context
                 subgraph_counter += 1
-        
+
             cumsum_main_nodes += num_nodes
             cumsum_main_edges += data.edge_index.shape[1]
             main_graph_counter += 1
@@ -414,15 +533,29 @@ class BatchHybrid(Data):
         for key in keys:
             batch[key] = torch.cat(batch[key], dim=batch.__cat_dim__(key))
 
-        batch.batch = torch.cat(batch.batch, dim=-1) # type: ignore
+        batch.batch = torch.cat(batch.batch, dim=-1)  # type: ignore
         if batch.batch_overlapped_context != []:
-            batch.batch_overlapped_context = torch.cat(batch.batch_overlapped_context, dim=-1)
-            batch.overlapped_context_size = torch.LongTensor(batch.overlapped_context_size)
+            batch.batch_overlapped_context = torch.cat(
+                batch.batch_overlapped_context, dim=-1
+            )
+            batch.overlapped_context_size = torch.LongTensor(
+                batch.overlapped_context_size
+            )
 
         return batch.contiguous()
 
     def __cat_dim__(self, key):
-        return -1 if key in ['edge_index', 'edge_index_substruct', 'edge_index_context', 'negative_edge_index'] else 0
+        return (
+            -1
+            if key
+            in [
+                "edge_index",
+                "edge_index_substruct",
+                "edge_index_context",
+                "negative_edge_index",
+            ]
+            else 0
+        )
 
     def cumsum(self, key, item):
         """If :obj:`True`, the attribute :obj:`key` with content :obj:`item`
@@ -430,11 +563,17 @@ class BatchHybrid(Data):
         .. note::
             This method is for internal use only, and should only be overridden
             if the batch concatenation process is corrupted for a specific data
-            attribute. """
-        return key in ['edge_index', 'face', 'masked_atom_indices', 'connected_edge_indices',
-                       'edge_index_substruct', 'edge_index_context',
-                       'overlap_context_substruct_idx',
-                       'center_substruct_idx']
+            attribute."""
+        return key in [
+            "edge_index",
+            "face",
+            "masked_atom_indices",
+            "connected_edge_indices",
+            "edge_index_substruct",
+            "edge_index_context",
+            "overlap_context_substruct_idx",
+            "center_substruct_idx",
+        ]
 
     @property
     def num_graphs(self):

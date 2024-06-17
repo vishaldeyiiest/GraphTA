@@ -1,7 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import (MessagePassing, global_add_pool, global_max_pool, global_mean_pool)
+from torch_geometric.nn import (
+    MessagePassing,
+    global_add_pool,
+    global_max_pool,
+    global_mean_pool,
+)
 from torch_geometric.nn.inits import glorot, zeros
 from torch_geometric.utils import add_self_loops, softmax
 from torch_scatter import scatter_add
@@ -17,9 +22,9 @@ class GINConv(MessagePassing):
     def __init__(self, emb_dim, aggr="add"):
         super(GINConv, self).__init__()
         self.aggr = aggr
-        self.mlp = nn.Sequential(nn.Linear(emb_dim, 2 * emb_dim),
-                                 nn.ReLU(),
-                                 nn.Linear(2 * emb_dim, emb_dim))
+        self.mlp = nn.Sequential(
+            nn.Linear(emb_dim, 2 * emb_dim), nn.ReLU(), nn.Linear(2 * emb_dim, emb_dim)
+        )
         self.edge_embedding1 = nn.Embedding(num_bond_type, emb_dim)
         self.edge_embedding2 = nn.Embedding(num_bond_direction, emb_dim)
 
@@ -34,8 +39,9 @@ class GINConv(MessagePassing):
         self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
         edge_attr = torch.cat((edge_attr, self_loop_attr), dim=0)
 
-        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + \
-                          self.edge_embedding2(edge_attr[:, 1])
+        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + self.edge_embedding2(
+            edge_attr[:, 1]
+        )
 
         return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
 
@@ -60,11 +66,13 @@ class GCNConv(MessagePassing):
 
     def norm(self, edge_index, num_nodes, dtype):
         ### assuming that self-loops have been already added in edge_index
-        edge_weight = torch.ones((edge_index.size(1),), dtype=dtype, device=edge_index.device)
+        edge_weight = torch.ones(
+            (edge_index.size(1),), dtype=dtype, device=edge_index.device
+        )
         row, col = edge_index
         deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
         deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+        deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
 
         return deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
 
@@ -78,8 +86,9 @@ class GCNConv(MessagePassing):
         self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
 
         edge_attr = torch.cat((edge_attr, self_loop_attr), dim=0)
-        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + \
-                          self.edge_embedding2(edge_attr[:, 1])
+        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + self.edge_embedding2(
+            edge_attr[:, 1]
+        )
 
         norm = self.norm(edge_index[0], x.size(0), x.dtype)
 
@@ -126,8 +135,9 @@ class GATConv(MessagePassing):
         self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
 
         edge_attr = torch.cat((edge_attr, self_loop_attr), dim=0)
-        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + \
-                          self.edge_embedding2(edge_attr[:, 1])
+        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + self.edge_embedding2(
+            edge_attr[:, 1]
+        )
 
         x = self.weight_linear(x)
         return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
@@ -143,7 +153,7 @@ class GATConv(MessagePassing):
         alpha = softmax(alpha, edge_index[0])
 
         return x_j * alpha.view(-1, self.heads, 1)
-        
+
     def update(self, aggr_out):
         aggr_out = aggr_out.mean(dim=1)
         aggr_out += self.bias
@@ -163,7 +173,6 @@ class GraphSAGEConv(MessagePassing):
         nn.init.xavier_uniform_(self.edge_embedding1.weight.data)
         nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
 
-
     def forward(self, x, edge_index, edge_attr):
         # add self loops in the edge space
         edge_index = add_self_loops(edge_index, num_nodes=x.size(0))
@@ -174,8 +183,9 @@ class GraphSAGEConv(MessagePassing):
         self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
         edge_attr = torch.cat((edge_attr, self_loop_attr), dim=0)
 
-        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + \
-                          self.edge_embedding2(edge_attr[:, 1])
+        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + self.edge_embedding2(
+            edge_attr[:, 1]
+        )
 
         x = self.linear(x)
 
@@ -189,7 +199,15 @@ class GraphSAGEConv(MessagePassing):
 
 
 class GNN(nn.Module):
-    def __init__(self, num_layer, emb_dim, JK="last", drop_ratio=0., gnn_type="gin", logsigma=False):
+    def __init__(
+        self,
+        num_layer,
+        emb_dim,
+        JK="last",
+        drop_ratio=0.0,
+        gnn_type="gin",
+        logsigma=False,
+    ):
         if num_layer < 2:
             raise ValueError("Number of GNN layers must be greater than 1.")
 
@@ -262,7 +280,7 @@ class GNN(nn.Module):
             node_representation = torch.sum(torch.cat(h_list, dim=0), dim=0)[0]
         else:
             raise ValueError("not implemented.")
-        
+
         if self.logsigma is not None:
             return node_representation, self.logsigma
         else:
@@ -296,8 +314,9 @@ class GNN_graphpred(nn.Module):
         self.mult = 1
 
         if self.JK == "concat":
-            self.graph_pred_linear = nn.Linear(self.mult * (self.num_layer + 1) * self.emb_dim,
-                                               self.num_tasks)
+            self.graph_pred_linear = nn.Linear(
+                self.mult * (self.num_layer + 1) * self.emb_dim, self.num_tasks
+            )
         else:
             self.graph_pred_linear = nn.Linear(self.mult * self.emb_dim, self.num_tasks)
         return
@@ -311,8 +330,12 @@ class GNN_graphpred(nn.Module):
             x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index, edge_attr, batch = data.x, data.edge_index, \
-                                              data.edge_attr, data.batch
+            x, edge_index, edge_attr, batch = (
+                data.x,
+                data.edge_index,
+                data.edge_attr,
+                data.batch,
+            )
         else:
             raise ValueError("unmatched number of arguments.")
 
@@ -327,8 +350,12 @@ class GNN_graphpred(nn.Module):
             x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index, edge_attr, batch = data.x, data.edge_index, \
-                                              data.edge_attr, data.batch
+            x, edge_index, edge_attr, batch = (
+                data.x,
+                data.edge_index,
+                data.edge_attr,
+                data.batch,
+            )
         else:
             raise ValueError("unmatched number of arguments.")
 

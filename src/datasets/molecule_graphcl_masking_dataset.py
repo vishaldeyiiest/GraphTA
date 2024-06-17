@@ -1,4 +1,3 @@
-
 import os
 from itertools import repeat
 from tqdm import tqdm
@@ -11,27 +10,41 @@ from torch_geometric.utils import subgraph, to_networkx
 from .molecule_datasets import MoleculeDataset
 from .molecule_motif_datasets import rdkit_functional_group_label_features_generator
 
+
 class MoleculeGraphCLMaskingDataset(MoleculeDataset):
 
-    def __init__(self,
-                 root,
-                 mask_ratio,
-                 transform=None,
-                 pre_transform=None,
-                 pre_filter=None,
-                 dataset=None,
-                 empty=False):
+    def __init__(
+        self,
+        root,
+        mask_ratio,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        dataset=None,
+        empty=False,
+    ):
 
         self.mask_ratio = mask_ratio
         self.aug_prob = None
-        self.aug_mode = 'no_aug'
+        self.aug_mode = "no_aug"
         self.aug_strength = 0.2
-        self.augmentations = [self.node_drop, self.subgraph,
-                              self.edge_pert, self.attr_mask, lambda x: x]
+        self.augmentations = [
+            self.node_drop,
+            self.subgraph,
+            self.edge_pert,
+            self.attr_mask,
+            lambda x: x,
+        ]
         super(MoleculeGraphCLMaskingDataset, self).__init__(
-            root, dataset=dataset,
-            pre_transform=pre_transform, pre_filter=pre_filter, empty=empty)
-        self.post_transform = transform ## need to transform only the first batch of data
+            root,
+            dataset=dataset,
+            pre_transform=pre_transform,
+            pre_filter=pre_filter,
+            empty=empty,
+        )
+        self.post_transform = (
+            transform  ## need to transform only the first batch of data
+        )
 
     def set_augMode(self, aug_mode):
         self.aug_mode = aug_mode
@@ -52,11 +65,13 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
         idx_nodrop = idx_perm[drop_num:].tolist()
         idx_nodrop.sort()
 
-        edge_idx, edge_attr = subgraph(subset=idx_nodrop,
-                                       edge_index=data.edge_index,
-                                       edge_attr=data.edge_attr,
-                                       relabel_nodes=True,
-                                       num_nodes=node_num)
+        edge_idx, edge_attr = subgraph(
+            subset=idx_nodrop,
+            edge_index=data.edge_index,
+            edge_attr=data.edge_attr,
+            relabel_nodes=True,
+            num_nodes=node_num,
+        )
 
         data.edge_index = edge_idx
         data.edge_attr = edge_attr
@@ -70,8 +85,7 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
         pert_num = int(edge_num * self.aug_strength)
 
         # delete edges
-        idx_drop = np.random.choice(edge_num, (edge_num - pert_num),
-                                    replace=False)
+        idx_drop = np.random.choice(edge_num, (edge_num - pert_num), replace=False)
         edge_index = data.edge_index[:, idx_drop]
         edge_attr = data.edge_attr[idx_drop]
 
@@ -80,14 +94,17 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
         adj[edge_index[0], edge_index[1]] = 0
         # edge_index_nonexist = adj.nonzero(as_tuple=False).t()
         edge_index_nonexist = torch.nonzero(adj, as_tuple=False).t()
-        idx_add = np.random.choice(edge_index_nonexist.shape[1],
-                                   pert_num, replace=False)
+        idx_add = np.random.choice(
+            edge_index_nonexist.shape[1], pert_num, replace=False
+        )
         edge_index_add = edge_index_nonexist[:, idx_add]
         # random 4-class & 3-class edge_attr for 1st & 2nd dimension
-        edge_attr_add_1 = torch.tensor(np.random.randint(
-            4, size=(edge_index_add.shape[1], 1)))
-        edge_attr_add_2 = torch.tensor(np.random.randint(
-            3, size=(edge_index_add.shape[1], 1)))
+        edge_attr_add_1 = torch.tensor(
+            np.random.randint(4, size=(edge_index_add.shape[1], 1))
+        )
+        edge_attr_add_2 = torch.tensor(
+            np.random.randint(3, size=(edge_index_add.shape[1], 1))
+        )
         edge_attr_add = torch.cat((edge_attr_add_1, edge_attr_add_2), dim=1)
         edge_index = torch.cat((edge_index, edge_index_add), dim=1)
         edge_attr = torch.cat((edge_attr, edge_attr_add), dim=0)
@@ -103,8 +120,7 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
         mask_num = int(node_num * self.aug_strength)
 
         token = data.x.float().mean(dim=0).long()
-        idx_mask = np.random.choice(
-            node_num, mask_num, replace=False)
+        idx_mask = np.random.choice(node_num, mask_num, replace=False)
 
         _x[idx_mask] = token
         data.x = _x
@@ -121,22 +137,27 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
 
         while len(idx_sub) <= sub_num:
             if len(idx_neigh) == 0:
-                idx_unsub = list(set([n for n in range(node_num)]).difference(set(idx_sub)))
+                idx_unsub = list(
+                    set([n for n in range(node_num)]).difference(set(idx_sub))
+                )
                 idx_neigh = set([np.random.choice(idx_unsub)])
             sample_node = np.random.choice(list(idx_neigh))
 
             idx_sub.append(sample_node)
             idx_neigh = idx_neigh.union(
-                set([n for n in G.neighbors(idx_sub[-1])])).difference(set(idx_sub))
+                set([n for n in G.neighbors(idx_sub[-1])])
+            ).difference(set(idx_sub))
 
         idx_nondrop = idx_sub
         idx_nondrop.sort()
 
-        edge_idx, edge_attr = subgraph(subset=idx_nondrop,
-                                       edge_index=data.edge_index,
-                                       edge_attr=data.edge_attr,
-                                       relabel_nodes=True,
-                                       num_nodes=node_num)
+        edge_idx, edge_attr = subgraph(
+            subset=idx_nondrop,
+            edge_index=data.edge_index,
+            edge_attr=data.edge_attr,
+            relabel_nodes=True,
+            num_nodes=node_num,
+        )
 
         data.edge_index = edge_idx
         data.edge_attr = edge_attr
@@ -154,22 +175,27 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
 
         while len(idx_sub) <= sub_num:
             if len(idx_neigh) == 0:
-                idx_unsub = list(set([n for n in range(node_num)]).difference(set(idx_sub)))
+                idx_unsub = list(
+                    set([n for n in range(node_num)]).difference(set(idx_sub))
+                )
                 idx_neigh = set([np.random.choice(idx_unsub)])
             sample_node = np.random.choice(list(idx_neigh))
 
             idx_sub.append(sample_node)
             idx_neigh = idx_neigh.union(
-                set([n for n in G.neighbors(idx_sub[-1])])).difference(set(idx_sub))
+                set([n for n in G.neighbors(idx_sub[-1])])
+            ).difference(set(idx_sub))
 
         idx_nondrop = idx_sub
         idx_nondrop.sort()
 
-        edge_idx, edge_attr = subgraph(subset=idx_nondrop,
-                                       edge_index=data.edge_index,
-                                       edge_attr=data.edge_attr,
-                                       relabel_nodes=True,
-                                       num_nodes=node_num)
+        edge_idx, edge_attr = subgraph(
+            subset=idx_nondrop,
+            edge_index=data.edge_index,
+            edge_attr=data.edge_attr,
+            relabel_nodes=True,
+            num_nodes=node_num,
+        )
 
         data.edge_index = edge_idx
         data.edge_attr = edge_attr
@@ -180,7 +206,7 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
 
     def get(self, idx):
         data, data1, data2 = Data(), Data(), Data()
-        keys_for_2D = ['x', 'edge_index', 'edge_attr']
+        keys_for_2D = ["x", "edge_index", "edge_attr"]
         for key in self.data.keys:
             item, slices = self.data[key], self.slices[key]
             s = list(repeat(slice(None), item.dim()))
@@ -192,17 +218,17 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
 
         if self.mask_ratio > 0:
             data = self.subgraph_3D(data)
-            
-        if self.aug_mode == 'no_aug':
+
+        if self.aug_mode == "no_aug":
             n_aug1, n_aug2 = 4, 4
             data1 = self.augmentations[n_aug1](data1)
             data2 = self.augmentations[n_aug2](data2)
-        elif self.aug_mode == 'uniform':
+        elif self.aug_mode == "uniform":
             n_aug = np.random.choice(25, 1)[0]
             n_aug1, n_aug2 = n_aug // 5, n_aug % 5
             data1 = self.augmentations[n_aug1](data1)
             data2 = self.augmentations[n_aug2](data2)
-        elif self.aug_mode == 'sample':
+        elif self.aug_mode == "sample":
             n_aug = np.random.choice(25, 1, p=self.aug_prob)[0]
             n_aug1, n_aug2 = n_aug // 5, n_aug % 5
             data1 = self.augmentations[n_aug1](data1)
@@ -214,29 +240,30 @@ class MoleculeGraphCLMaskingDataset(MoleculeDataset):
         return data, data1, data2
 
 
-
 class MoleculeGraphCLHybridDataset(MoleculeGraphCLMaskingDataset):
-    def __init__(self,
-                 root,
-                 mask_ratio,
-                 transform=None,
-                 pre_transform=None,
-                 pre_filter=None,
-                 dataset=None,
-                 empty=False):
+    def __init__(
+        self,
+        root,
+        mask_ratio,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        dataset=None,
+        empty=False,
+    ):
         super(MoleculeGraphCLHybridDataset, self).__init__(
-            root, mask_ratio, 
-            transform, pre_transform, pre_filter, dataset, empty)
-        
-        self.motif_file = os.path.join(root, 'processed', 'motif.pt')
+            root, mask_ratio, transform, pre_transform, pre_filter, dataset, empty
+        )
+
+        self.motif_file = os.path.join(root, "processed", "motif.pt")
         self.process_motif_file()
         self.motif_label_file = torch.load(self.motif_file)
 
     def process_motif_file(self):
         if not os.path.exists(self.motif_file):
-            smiles_path = os.path.join(self.root, 'processed', 'smiles.csv')
+            smiles_path = os.path.join(self.root, "processed", "smiles.csv")
             data_smiles_list = []
-            with open(smiles_path, 'r') as f:
+            with open(smiles_path, "r") as f:
                 for smiles in f:
                     data_smiles_list.append(smiles.strip())
 
@@ -252,29 +279,31 @@ class MoleculeGraphCLHybridDataset(MoleculeGraphCLMaskingDataset):
         data, data1, data2 = super(MoleculeGraphCLHybridDataset, self).get(idx)
         data.motif_label = self.motif_label_file[idx]
         return data, data1, data2
-    
+
 
 class MoleculeHybridDataset(MoleculeDataset):
-    def __init__(self,
-                 root,
-                 dataset=None,
-                 transform=None,
-                 pre_transform=None,
-                 pre_filter=None,
-                 empty=False):
+    def __init__(
+        self,
+        root,
+        dataset=None,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        empty=False,
+    ):
         super(MoleculeHybridDataset, self).__init__(
-            root, dataset,
-            transform, pre_transform, pre_filter, empty)
-        
-        self.motif_file = os.path.join(root, 'processed', 'motif.pt')
+            root, dataset, transform, pre_transform, pre_filter, empty
+        )
+
+        self.motif_file = os.path.join(root, "processed", "motif.pt")
         self.process_motif_file()
         self.motif_label_file = torch.load(self.motif_file)
 
     def process_motif_file(self):
         if not os.path.exists(self.motif_file):
-            smiles_path = os.path.join(self.root, 'processed', 'smiles.csv')
+            smiles_path = os.path.join(self.root, "processed", "smiles.csv")
             data_smiles_list = []
-            with open(smiles_path, 'r') as f:
+            with open(smiles_path, "r") as f:
                 for smiles in f:
                     data_smiles_list.append(smiles.strip())
 

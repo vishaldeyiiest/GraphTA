@@ -10,18 +10,32 @@ from .molecule_motif_datasets import rdkit_functional_group_label_features_gener
 
 
 class Molecule3DMaskingDataset(InMemoryDataset):
-    def __init__(self, root, dataset, mask_ratio,
-                 transform=None, pre_transform=None, pre_filter=None, empty=False):
+    def __init__(
+        self,
+        root,
+        dataset,
+        mask_ratio,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        empty=False,
+    ):
         self.root = root
         self.dataset = dataset
         self.mask_ratio = mask_ratio
 
-        super(Molecule3DMaskingDataset, self).__init__(root, transform, pre_transform, pre_filter)
-        self.transform, self.pre_transform, self.pre_filter = transform, pre_transform, pre_filter
+        super(Molecule3DMaskingDataset, self).__init__(
+            root, transform, pre_transform, pre_filter
+        )
+        self.transform, self.pre_transform, self.pre_filter = (
+            transform,
+            pre_transform,
+            pre_filter,
+        )
 
         if not empty:
             self.data, self.slices = torch.load(self.processed_paths[0])
-        print('Dataset: {}\nData: {}'.format(self.dataset, self.data))
+        print("Dataset: {}\nData: {}".format(self.dataset, self.data))
 
     def subgraph(self, data):
         G = to_networkx(data)
@@ -34,22 +48,27 @@ class Molecule3DMaskingDataset(InMemoryDataset):
         # BFS
         while len(idx_sub) <= sub_num:
             if len(idx_neigh) == 0:
-                idx_unsub = list(set([n for n in range(node_num)]).difference(set(idx_sub)))
+                idx_unsub = list(
+                    set([n for n in range(node_num)]).difference(set(idx_sub))
+                )
                 idx_neigh = set([np.random.choice(idx_unsub)])
             sample_node = np.random.choice(list(idx_neigh))
 
             idx_sub.append(sample_node)
             idx_neigh = idx_neigh.union(
-                set([n for n in G.neighbors(idx_sub[-1])])).difference(set(idx_sub))
+                set([n for n in G.neighbors(idx_sub[-1])])
+            ).difference(set(idx_sub))
 
         idx_nondrop = idx_sub
         idx_nondrop.sort()
 
-        edge_idx, edge_attr = subgraph(subset=idx_nondrop,
-                                       edge_index=data.edge_index,
-                                       edge_attr=data.edge_attr,
-                                       relabel_nodes=True,
-                                       num_nodes=node_num)
+        edge_idx, edge_attr = subgraph(
+            subset=idx_nondrop,
+            edge_index=data.edge_index,
+            edge_attr=data.edge_attr,
+            relabel_nodes=True,
+            num_nodes=node_num,
+        )
 
         data.edge_index = edge_idx
         data.edge_attr = edge_attr
@@ -65,7 +84,7 @@ class Molecule3DMaskingDataset(InMemoryDataset):
             s = list(repeat(slice(None), item.dim()))
             s[data.__cat_dim__(key, item)] = slice(slices[idx], slices[idx + 1])
             data[key] = item[s]
-        
+
         if self.mask_ratio > 0:
             data = self.subgraph(data)
         return data
@@ -76,7 +95,7 @@ class Molecule3DMaskingDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return 'geometric_data_processed.pt'
+        return "geometric_data_processed.pt"
 
     def download(self):
         return
@@ -86,27 +105,29 @@ class Molecule3DMaskingDataset(InMemoryDataset):
 
 
 class Molecule3DHybridDataset(Molecule3DMaskingDataset):
-    def __init__(self,
-                 root,
-                 mask_ratio,
-                 transform=None,
-                 pre_transform=None,
-                 pre_filter=None,
-                 dataset=None,
-                 empty=False):
+    def __init__(
+        self,
+        root,
+        mask_ratio,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        dataset=None,
+        empty=False,
+    ):
         super(Molecule3DHybridDataset, self).__init__(
-            root, dataset, mask_ratio, 
-            transform, pre_transform, pre_filter, empty)
-        
-        self.motif_file = os.path.join(root, 'processed', 'motif.pt')
+            root, dataset, mask_ratio, transform, pre_transform, pre_filter, empty
+        )
+
+        self.motif_file = os.path.join(root, "processed", "motif.pt")
         self.process_motif_file()
         self.motif_label_file = torch.load(self.motif_file)
 
     def process_motif_file(self):
         if not os.path.exists(self.motif_file):
-            smiles_path = os.path.join(self.root, 'processed', 'smiles.csv')
+            smiles_path = os.path.join(self.root, "processed", "smiles.csv")
             data_smiles_list = []
-            with open(smiles_path, 'r') as f:
+            with open(smiles_path, "r") as f:
                 for smiles in f:
                     data_smiles_list.append(smiles.strip())
 

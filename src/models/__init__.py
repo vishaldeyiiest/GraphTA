@@ -1,4 +1,3 @@
-
 import numpy as np
 from .auto_encoder import AutoEncoder, VariationalAutoEncoder
 from .molecule_gnn_model import GNN, GNN_graphpred
@@ -7,7 +6,7 @@ from .schnet import SchNet
 import torch
 import torch.nn as nn
 from torch_geometric.nn.inits import uniform
-from torch_geometric.nn import (global_add_pool, global_max_pool, global_mean_pool)
+from torch_geometric.nn import global_add_pool, global_max_pool, global_mean_pool
 
 
 class Discriminator(nn.Module):
@@ -22,8 +21,7 @@ class Discriminator(nn.Module):
 
     def forward(self, x, summary):
         h = torch.matmul(summary, self.weight)
-        return torch.sum(x*h, dim=1)
-
+        return torch.sum(x * h, dim=1)
 
 
 class AuxiliaryNet(nn.Module):
@@ -47,7 +45,7 @@ class AuxiliaryNet(nn.Module):
         self.aux_classifier = nn.Sequential(
             nn.Linear(self.emb_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, int(np.sum(self.psi)))
+            nn.Linear(128, int(np.sum(self.psi))),
         )
 
     def from_pretrained(self, model_file, device):
@@ -57,22 +55,32 @@ class AuxiliaryNet(nn.Module):
     def mask_softmax(self, x, mask, dim=1):
         z = x.max(dim=dim)[0]
         x = x - z.reshape(-1, 1)
-        logits = torch.exp(x) * mask / (torch.sum(torch.exp(x) * mask, dim=dim, keepdim=True) + 1e-7)
+        logits = (
+            torch.exp(x)
+            * mask
+            / (torch.sum(torch.exp(x) * mask, dim=dim, keepdim=True) + 1e-7)
+        )
         return logits
 
     def forward(self, data):
-        x, edge_index, edge_attr, batch = data.x, data.edge_index, \
-                                              data.edge_attr, data.batch
-        y = ((data.y.reshape(-1,len(self.psi))+1)//2).long()
+        x, edge_index, edge_attr, batch = (
+            data.x,
+            data.edge_index,
+            data.edge_attr,
+            data.batch,
+        )
+        y = ((data.y.reshape(-1, len(self.psi)) + 1) // 2).long()
         node_representation = self.molecule_model(x, edge_index, edge_attr)
         graph_representation = self.pool(node_representation, batch)
         output = self.aux_classifier(graph_representation)
 
         # build a binary mask by psi, we add epsilon=1e-8 to avoid nans
-        index = torch.zeros([len(self.psi), np.sum(self.psi)], device=output.device) + 1e-8
+        index = (
+            torch.zeros([len(self.psi), np.sum(self.psi)], device=output.device) + 1e-8
+        )
         for i in range(len(self.psi)):
-            index[i, int(np.sum(self.psi[:i])):np.sum(self.psi[:i + 1])] = 1
+            index[i, int(np.sum(self.psi[:i])) : np.sum(self.psi[: i + 1])] = 1
         mask = index[y]
 
         label_pred = self.mask_softmax(output, mask, dim=1)
-        return label_pred 
+        return label_pred

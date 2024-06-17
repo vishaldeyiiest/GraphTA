@@ -21,11 +21,11 @@ class AutoEncoder(torch.nn.Module):
         self.detach_target = detach_target
 
         self.criterion = None
-        if loss == 'l1':
+        if loss == "l1":
             self.criterion = nn.L1Loss()
-        elif loss == 'l2':
+        elif loss == "l2":
             self.criterion = nn.MSELoss()
-        elif loss == 'cosine':
+        elif loss == "cosine":
             self.criterion = cosine_similarity
 
         self.fc_layers = nn.Sequential(
@@ -54,11 +54,11 @@ class VariationalAutoEncoder(torch.nn.Module):
         self.beta = beta
 
         self.criterion = None
-        if loss == 'l1':
+        if loss == "l1":
             self.criterion = nn.L1Loss()
-        elif loss == 'l2':
+        elif loss == "l2":
             self.criterion = nn.MSELoss()
-        elif loss == 'cosine':
+        elif loss == "cosine":
             self.criterion = cosine_similarity
 
         self.fc_mu = nn.Linear(self.emb_dim, self.emb_dim)
@@ -91,7 +91,9 @@ class VariationalAutoEncoder(torch.nn.Module):
         y_hat = self.decoder(z)
 
         reconstruction_loss = self.criterion(y_hat, y)
-        kl_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0)
+        kl_loss = torch.mean(
+            -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
+        )
 
         loss = reconstruction_loss + self.beta * kl_loss
 
