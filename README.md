@@ -12,7 +12,7 @@ poetry install
 
 ## Environments
 
-Manually Installing required packages under conda environment
+Manually Installing required packages under conda environment. This step is NOT needed if you already installed using `poetry` as explained above.
 
 ```
 conda create -n GraphTA python=3.
@@ -63,7 +63,7 @@ Move the `molecule_datasets` to `../datasets/`.
 ### For running $\mathtt{MTL}$, $\mathtt{GCS}$, $\mathtt{GNS}$ and $\mathtt{BLO}$
 
 ```
-poetry run python meta_adapt.py --input_model_file <path to pretrained checkpoints> --split scaffold --dataset $dataset \
+poetry run src/python meta_adapt.py --input_model_file <path to pretrained checkpoints> --split scaffold --dataset $dataset \
     --input_data_dir <path to dataset directory> --aux_2D_mode ${aux_mode} \
     --adapt $adapt --adapt_every ${adapt_every} --epochs 100 --batch_size $batch_size --output_model_dir <path to save>
 ```
