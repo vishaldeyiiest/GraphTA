@@ -1,6 +1,8 @@
 
 # Enhancing Molecular Property Prediction with Auxiliary Learning and Task-Specific Adaptation
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11894598.svg)](https://doi.org/10.5281/zenodo.11894598)
+
 ## Installation
 Follow the [instructions](https://python-poetry.org/docs/#installation) to install poetry. Use `poetry` to install the code and dependencies as follows:
 ```
@@ -80,6 +82,3 @@ For example, to run $\mathtt{BLO}$ experiment on `bace` dataset, run:
 ```
 bash scripts/run_meta_adapt.sh bace model_gin/supervised_contextpred.pth ../tmp/ blo
 ```
-
-## Cite
-Please cite our code using this [DOI](https://doi.org/10.5281/zenodo.11894597).
