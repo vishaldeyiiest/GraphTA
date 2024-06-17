@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "graphta"
+version = "0.1.0"
+description = "Enhancing Molecular Property Prediction with Auxiliary Learning and Task-Specific Adaptation"
+authors = ["Vishal Dey <dey.78@osu.edu>"]
+license = "LICENSE"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.10.*"
+numpy = "1.26"
+rdkit = "2022.09.4"
+torch = { url = "https://download.pytorch.org/whl/cu118/torch-2.0.0%2Bcu118-cp310-cp310-linux_x86_64.whl"}
+torchaudio = { url = "https://download.pytorch.org/whl/cu118/torchaudio-2.0.0%2Bcu118-cp310-cp310-linux_x86_64.whl" }
+torchvision = { url = "https://download.pytorch.org/whl/cu118/torchvision-0.15.0%2Bcu118-cp310-cp310-linux_x86_64.whl" }
+pyg-lib = { url = "https://data.pyg.org/whl/torch-2.0.0%2Bcu118/pyg_lib-0.4.0%2Bpt20cu118-cp310-cp310-linux_x86_64.whl" }
+torch-scatter = { url = "https://data.pyg.org/whl/torch-2.0.0%2Bcu118/torch_scatter-2.1.2%2Bpt20cu118-cp310-cp310-linux_x86_64.whl" }
+torch-sparse = { url = "https://data.pyg.org/whl/torch-2.0.0%2Bcu118/torch_sparse-0.6.18%2Bpt20cu118-cp310-cp310-linux_x86_64.whl" }
+ase = "^3.23.0"
+descriptastorus = {git = "https://github.com/bp-kelley/descriptastorus"}
+torch-geometric = "^2.5.3"
+wandb = "^0.17.1"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
