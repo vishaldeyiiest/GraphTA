@@ -5,11 +5,12 @@ description = "Enhancing Molecular Property Prediction with Auxiliary Learning a
 authors = ["Vishal Dey <dey.78@osu.edu>"]
 license = "LICENSE"
 readme = "README.md"
-keywords = ["packaging", "poetry"]
+keywords = ["deep learning", "molecular property prediction", "transfer learning"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  # Specify the Python versions you support here.
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3.10"
 ]
 
@@ -35,4 +36,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.urls]
+homepage = "https://github.com/vishaldeyiiest/graphta"
+repository = "https://github.com/vishaldeyiiest/graphta"
+documentation = "https://github.com/vishaldeyiiest/graphta"
 "Bug Tracker" = "https://github.com/vishaldeyiiest/GraphTA/issues"
